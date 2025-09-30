@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct WorkoutView: View {
-    @StateObject private var workoutStore = WorkoutStore()
+    @EnvironmentObject var workoutStore: WorkoutStore
     @State private var showingExerciseSelection = false
 
     var body: some View {
@@ -413,4 +413,5 @@ struct TemplateSelectionView: View {
 
 #Preview {
     WorkoutView()
+        .environmentObject(WorkoutStore())
 }

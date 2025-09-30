@@ -31,6 +31,7 @@
 		F4011BC42E8BAC0000B1C94E /* GoogleService-Info 2.plist in Resources */ = {isa = PBXBuildFile; fileRef = F4011BC32E8BAC0000B1C94E /* GoogleService-Info 2.plist */; };
 		F4011BC62E8BAE1000B1C94E /* AuthenticationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4011BC52E8BAE1000B1C94E /* AuthenticationManager.swift */; };
 		F4011BC82E8BAE2500B1C94E /* AuthenticationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4011BC72E8BAE2500B1C94E /* AuthenticationView.swift */; };
+		F4011BCA2E8BB1D600B1C94E /* FirestoreManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4011BC92E8BB1D600B1C94E /* FirestoreManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -56,6 +57,7 @@
 		F4011BC32E8BAC0000B1C94E /* GoogleService-Info 2.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info 2.plist"; sourceTree = "<group>"; };
 		F4011BC52E8BAE1000B1C94E /* AuthenticationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationManager.swift; sourceTree = "<group>"; };
 		F4011BC72E8BAE2500B1C94E /* AuthenticationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationView.swift; sourceTree = "<group>"; };
+		F4011BC92E8BB1D600B1C94E /* FirestoreManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirestoreManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -114,6 +116,7 @@
 		CE1F71D12CAE00002900ABCD /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				F4011BC92E8BB1D600B1C94E /* FirestoreManager.swift */,
 				F4011BC52E8BAE1000B1C94E /* AuthenticationManager.swift */,
 				CE1F71BD2CAE00002900ABCD /* WorkoutModels.swift */,
 				CE1F71BF2CAE00002900ABCD /* NutritionModels.swift */,
@@ -230,6 +233,7 @@
 				CE1F71C62CAE00002900ABCD /* ProgressView.swift in Sources */,
 				CE1F71C82CAE00002900ABCD /* ProfileView.swift in Sources */,
 				CE1F71D32CAE00002900ABCD /* ExerciseDatabase.swift in Sources */,
+				F4011BCA2E8BB1D600B1C94E /* FirestoreManager.swift in Sources */,
 				CE1F71D52CAE00002900ABCD /* WorkoutTemplates.swift in Sources */,
 				CE1F71D72CAE00002900ABCD /* ExerciseSelectionView.swift in Sources */,
 				F4011BC62E8BAE1000B1C94E /* AuthenticationManager.swift in Sources */,

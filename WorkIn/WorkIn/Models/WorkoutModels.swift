@@ -51,21 +51,112 @@ struct ExerciseSet: Identifiable, Codable, Equatable {
 class WorkoutStore: ObservableObject {
     @Published var workouts: [Workout] = []
     @Published var currentWorkout: Workout?
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+
+    private let firestoreManager = FirestoreManager()
 
     init() {
-        loadSampleData()
+        setupFirestoreListeners()
     }
 
-    func addWorkout(_ workout: Workout) {
-        workouts.append(workout)
+    // MARK: - Firebase Integration
+    private func setupFirestoreListeners() {
+        firestoreManager.listenToWorkouts { [weak self] (workouts: [Workout]) in
+            DispatchQueue.main.async {
+                self?.workouts = workouts
+                self?.isLoading = false
+            }
+        }
     }
 
-    func deleteWorkout(_ workout: Workout) {
-        workouts.removeAll { $0.id == workout.id }
+    func loadWorkouts() async {
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
+
+        do {
+            let fetchedWorkouts = try await firestoreManager.fetchWorkouts()
+            await MainActor.run {
+                self.workouts = fetchedWorkouts
+                self.isLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = error.localizedDescription
+                self.isLoading = false
+                // Fallback to sample data if user is offline or there's an error
+                self.loadSampleData()
+            }
+        }
+    }
+
+    func saveWorkout(_ workout: Workout) async {
+        do {
+            try await firestoreManager.saveWorkout(workout)
+            await MainActor.run {
+                // Update local array if not already present
+                if !workouts.contains(where: { $0.id == workout.id }) {
+                    workouts.insert(workout, at: 0)
+                }
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = "Failed to save workout: \(error.localizedDescription)"
+                // Still add to local array as fallback
+                if !workouts.contains(where: { $0.id == workout.id }) {
+                    workouts.insert(workout, at: 0)
+                }
+            }
+        }
+    }
+
+    func deleteWorkout(_ workout: Workout) async {
+        await MainActor.run {
+            // Optimistically remove from UI
+            workouts.removeAll { $0.id == workout.id }
+        }
+
+        do {
+            try await firestoreManager.deleteWorkout(workout.id.uuidString)
+        } catch {
+            await MainActor.run {
+                // Restore workout if delete failed
+                workouts.append(workout)
+                errorMessage = "Failed to delete workout: \(error.localizedDescription)"
+            }
+        }
     }
 
     func deleteWorkouts(at indexSet: IndexSet) {
+        let workoutsToDelete = indexSet.map { workouts[$0] }
+
+        // Remove from local array immediately
         workouts.remove(atOffsets: indexSet)
+
+        // Delete from Firebase
+        Task {
+            for workout in workoutsToDelete {
+                do {
+                    try await firestoreManager.deleteWorkout(workout.id.uuidString)
+                } catch {
+                    await MainActor.run {
+                        errorMessage = "Failed to delete some workouts: \(error.localizedDescription)"
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Local Workout Management
+    func addWorkout(_ workout: Workout) {
+        workouts.append(workout)
+
+        // Also save to Firebase
+        Task {
+            await saveWorkout(workout)
+        }
     }
 
     func startWorkout(name: String) {
@@ -86,12 +177,23 @@ class WorkoutStore: ObservableObject {
         if let workout = currentWorkout {
             var finishedWorkout = workout
             finishedWorkout.date = Date()
-            workouts.append(finishedWorkout)
+
+            // Add to local array
+            workouts.insert(finishedWorkout, at: 0)
             currentWorkout = nil
+
+            // Save to Firebase
+            Task {
+                await saveWorkout(finishedWorkout)
+            }
         }
     }
 
+    // MARK: - Sample Data (Fallback)
     private func loadSampleData() {
+        // Only load sample data if workouts array is empty
+        guard workouts.isEmpty else { return }
+
         let sampleExercises = [
             Exercise(name: "Bench Press", sets: [
                 ExerciseSet(reps: 10, weight: 135),
@@ -113,5 +215,9 @@ class WorkoutStore: ObservableObject {
         )
 
         workouts.append(sampleWorkout)
+    }
+
+    deinit {
+        firestoreManager.removeAllListeners()
     }
 }
