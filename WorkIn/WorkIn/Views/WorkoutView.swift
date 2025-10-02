@@ -157,6 +157,13 @@ struct ExerciseBadge: View {
     }
 }
 
+struct WorkoutCompletion: Identifiable {
+    let id = UUID()
+    let workout: Workout
+    let rank: StrengthRank?
+    let personalRecords: [PersonalRecord]
+}
+
 struct ActiveWorkoutView: View {
     @State var workout: Workout
     @ObservedObject var workoutStore: WorkoutStore
@@ -164,10 +171,7 @@ struct ActiveWorkoutView: View {
     @State private var startTime = Date()
     @State private var timer: Timer?
     @State private var elapsedTime: TimeInterval = 0
-    @State private var showingCompletionSummary = false
-    @State private var completedWorkout: Workout?
-    @State private var achievedRank: StrengthRank?
-    @State private var personalRecords: [PersonalRecord] = []
+    @State private var workoutCompletion: WorkoutCompletion?
 
     var body: some View {
         ScrollView {
@@ -191,35 +195,40 @@ struct ActiveWorkoutView: View {
             stopTimer()
         }
         .onChange(of: workoutStore.currentWorkout) { newWorkout in
+            // Only sync if exercises were added/removed, not if sets were updated
+            // This prevents overwriting local set changes
             if let newWorkout = newWorkout {
-                workout = newWorkout
-            }
-        }
-        .sheet(isPresented: $showingCompletionSummary) {
-            if let completedWorkout = completedWorkout {
-                WorkoutCompletionSummaryView(
-                    completedWorkout: completedWorkout,
-                    achievedRank: achievedRank,
-                    personalRecords: personalRecords,
-                    isPresented: $showingCompletionSummary
-                )
-                .onAppear {
-                    print("🎉 SUCCESS: Sheet presenting completion summary for workout: \(completedWorkout.name)")
+                if newWorkout.exercises.count != workout.exercises.count {
+                    print("📝 onChange: Syncing workout due to exercise count change (\(workout.exercises.count) -> \(newWorkout.exercises.count))")
+                    workout = newWorkout
+                } else {
+                    print("📝 onChange: Skipping sync - exercise count is same (\(workout.exercises.count))")
                 }
             } else {
-                VStack {
-                    Text("🎉 Workout Complete!")
-                        .font(.title)
-                        .padding()
-                    Text("Error: No workout data available")
-                    Button("Close") {
-                        showingCompletionSummary = false
-                    }
-                    .padding()
-                }
-                .onAppear {
-                    print("🎉 ERROR: Sheet triggered but completedWorkout is nil!")
-                }
+                print("📝 onChange: workoutStore.currentWorkout is nil")
+            }
+        }
+        .sheet(item: $workoutCompletion) { completion in
+            WorkoutCompletionSummaryView(
+                completedWorkout: completion.workout,
+                achievedRank: completion.rank,
+                personalRecords: completion.personalRecords,
+                isPresented: Binding(
+                    get: { workoutCompletion != nil },
+                    set: { if !$0 { workoutCompletion = nil } }
+                )
+            )
+            .onAppear {
+                print("🎉 SUCCESS: Sheet presenting completion summary for workout: \(completion.workout.name)")
+                print("🎉 SUCCESS: Rank in sheet: \(completion.rank?.rawValue ?? "None")")
+            }
+            .onDisappear {
+                // Save workout when sheet is dismissed
+                workoutStore.currentWorkout = completion.workout
+                workoutStore.finishCurrentWorkout()
+                NotificationCenter.default.post(name: NSNotification.Name("WorkoutCompleted"), object: completion.workout)
+                print("🎉 Workout saved to store after sheet dismissed")
+                workoutCompletion = nil
             }
         }
     }
@@ -321,52 +330,62 @@ struct ActiveWorkoutView: View {
     }
 
     private func updateExerciseSets(exerciseIndex: Int, sets: [ExerciseSet]) {
-        guard exerciseIndex >= 0 && exerciseIndex < workout.exercises.count else { return }
+        guard exerciseIndex >= 0 && exerciseIndex < workout.exercises.count else {
+            print("⚠️ updateExerciseSets: Invalid index \(exerciseIndex)")
+            return
+        }
 
-        // Update local workout
-        workout.exercises[exerciseIndex].sets = sets
+        print("📝 updateExerciseSets: Updating exercise \(exerciseIndex) (\(workout.exercises[exerciseIndex].name)) with \(sets.count) sets")
 
-        // Update workout store
-        workoutStore.currentWorkout?.exercises[exerciseIndex].sets = sets
+        // Create a new workout to trigger SwiftUI update (structs need replacement, not mutation)
+        var updatedWorkout = workout
+        updatedWorkout.exercises[exerciseIndex].sets = sets
+        workout = updatedWorkout
+        print("📝 updateExerciseSets: Local workout now has \(workout.exercises[exerciseIndex].sets.count) sets")
+
+        // Update workout store - need to replace the whole workout to trigger @Published
+        if var currentWorkout = workoutStore.currentWorkout {
+            currentWorkout.exercises[exerciseIndex].sets = sets
+            workoutStore.currentWorkout = currentWorkout
+            print("📝 updateExerciseSets: Store workout now has \(workoutStore.currentWorkout?.exercises[exerciseIndex].sets.count ?? 0) sets")
+        }
     }
 
     private func finishWorkout() {
         print("🎉 finishWorkout() called - starting workout completion")
         stopTimer()
-        workoutStore.currentWorkout?.duration = elapsedTime
 
-        // Get the completed workout before finishing it
-        if let currentWorkout = workoutStore.currentWorkout {
-            print("🎉 Current workout found: \(currentWorkout.name)")
-            var finalWorkout = currentWorkout
-            finalWorkout.date = Date()
-            finalWorkout.duration = elapsedTime
+        // Use the LOCAL workout variable which has the most up-to-date sets
+        var finalWorkout = workout
+        finalWorkout.date = Date()
+        finalWorkout.duration = elapsedTime
 
-            // Detect personal records and rank
-            let previousWorkouts = workoutStore.workouts
-            personalRecords = finalWorkout.detectPersonalRecords(comparedTo: previousWorkouts)
-            achievedRank = finalWorkout.getHighestRank()
-            completedWorkout = finalWorkout
-
-            print("🎉 Workout completed with \(personalRecords.count) PRs and rank: \(achievedRank?.rawValue ?? "None")")
-            print("🎉 completedWorkout set to: \(completedWorkout?.name ?? "nil")")
-            print("🎉 About to show completion summary. Current state: \(showingCompletionSummary)")
-
-            // Show completion summary FIRST, before removing the view from hierarchy
-            showingCompletionSummary = true
-            print("🎉 Completion summary state set to: \(showingCompletionSummary)")
-
-            // Add to workout store AFTER showing the sheet
-            DispatchQueue.main.async {
-                self.workoutStore.finishCurrentWorkout()
-                print("🎉 Workout store finished current workout")
-
-                // Also update any ProgressData instances (this will update charts in real-time)
-                NotificationCenter.default.post(name: NSNotification.Name("WorkoutCompleted"), object: finalWorkout)
+        print("🎉 Current workout found: \(finalWorkout.name)")
+        print("🎉 DEBUG: Final workout has \(finalWorkout.exercises.count) exercises")
+        for (i, ex) in finalWorkout.exercises.enumerated() {
+            print("🎉 DEBUG: Exercise \(i): \(ex.name) - \(ex.sets.count) sets")
+            for (j, set) in ex.sets.enumerated() {
+                print("🎉 DEBUG:   Set \(j): \(set.reps) reps × \(set.weight) lbs")
             }
-        } else {
-            print("🎉 ERROR: No current workout found!")
         }
+
+        // Detect personal records and rank
+        let previousWorkouts = workoutStore.workouts
+        let detectedPRs = finalWorkout.detectPersonalRecords(comparedTo: previousWorkouts)
+        let detectedRank = finalWorkout.getHighestRank()
+
+        print("🎉 Workout completed with \(detectedPRs.count) PRs and rank: \(detectedRank?.rawValue ?? "None")")
+
+        // Create completion object with all data bundled together
+        let completion = WorkoutCompletion(
+            workout: finalWorkout,
+            rank: detectedRank,
+            personalRecords: detectedPRs
+        )
+
+        print("🎉 About to show completion summary - Rank: \(completion.rank?.rawValue ?? "None")")
+        workoutCompletion = completion
+        print("🎉 workoutCompletion set - sheet should now appear")
     }
 
     private func formatDuration(_ duration: TimeInterval) -> String {
@@ -540,6 +559,17 @@ struct WorkoutCompletionSummaryView: View {
                             RoundedRectangle(cornerRadius: 12)
                                 .stroke(themeManager.accentColor.opacity(0.3), lineWidth: 2)
                         )
+                        .onAppear {
+                            print("🏆 SUMMARY: Displaying rank: \(rank.rawValue) \(rank.symbol)")
+                        }
+                    } else {
+                        Text("🏆 No rank achieved (add weight exercises to earn a rank!)")
+                            .font(.caption)
+                            .foregroundColor(themeManager.secondaryTextColor)
+                            .padding()
+                            .onAppear {
+                                print("🏆 SUMMARY: No rank to display - achievedRank is nil")
+                            }
                     }
 
                     // Personal Records
@@ -595,6 +625,23 @@ struct WorkoutCompletionSummaryView: View {
                     .padding()
                     .background(themeManager.secondaryBackgroundColor)
                     .cornerRadius(12)
+
+                    // Workout Details
+                    VStack(spacing: 12) {
+                        HStack {
+                            Text("Workout Details")
+                                .font(.headline)
+                                .foregroundColor(themeManager.primaryTextColor)
+                            Spacer()
+                        }
+
+                        ForEach(completedWorkout.exercises) { exercise in
+                            ExerciseSummaryCard(exercise: exercise)
+                        }
+                    }
+                    .padding()
+                    .background(themeManager.cardBackgroundColor)
+                    .cornerRadius(12)
                 }
                 .padding()
             }
@@ -642,6 +689,80 @@ struct WorkoutCompletionSummaryView: View {
     private func formatDurationShort(_ duration: TimeInterval) -> String {
         let minutes = Int(duration) / 60
         return "\(minutes)m"
+    }
+}
+
+struct ExerciseSummaryCard: View {
+    let exercise: Exercise
+    @EnvironmentObject var themeManager: ThemeManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Exercise header
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(exercise.name)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(themeManager.primaryTextColor)
+
+                    Text(exercise.muscleGroups.joined(separator: ", "))
+                        .font(.caption)
+                        .foregroundColor(themeManager.secondaryTextColor)
+                }
+
+                Spacer()
+
+                Text("\(exercise.sets.count) sets")
+                    .font(.caption)
+                    .foregroundColor(themeManager.secondaryTextColor)
+            }
+
+            // Sets list
+            VStack(spacing: 4) {
+                ForEach(Array(exercise.sets.enumerated()), id: \.element.id) { index, set in
+                    HStack(spacing: 8) {
+                        Text("Set \(index + 1)")
+                            .font(.caption)
+                            .foregroundColor(themeManager.secondaryTextColor)
+                            .frame(width: 50, alignment: .leading)
+
+                        Text("\(set.reps) reps × \(Int(set.weight)) lbs")
+                            .font(.caption)
+                            .foregroundColor(themeManager.primaryTextColor)
+
+                        Spacer()
+
+                        Text("\(Int(Double(set.reps) * set.weight)) lbs")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.orange)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(themeManager.secondaryBackgroundColor.opacity(0.5))
+                    .cornerRadius(6)
+                }
+            }
+
+            // Total volume for this exercise
+            HStack {
+                Spacer()
+                Text("Total Volume: \(calculateTotalVolume()) lbs")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(themeManager.accentColor)
+            }
+        }
+        .padding(12)
+        .background(themeManager.secondaryBackgroundColor)
+        .cornerRadius(8)
+    }
+
+    private func calculateTotalVolume() -> Int {
+        exercise.sets.reduce(0) { total, set in
+            total + Int(Double(set.reps) * set.weight)
+        }
     }
 }
 

@@ -551,11 +551,10 @@ extension Workout {
             }
         }
 
-        // Only return ranks that are Beginner or higher (filter out Novice for display)
+        // Return the highest rank achieved (including Novice)
         let finalRank = highestRank
-        let displayRank = (finalRank == .novice) ? nil : finalRank
-        print("🏋️ Final rank for workout '\(name)': \(displayRank?.rawValue ?? "No rank") \(displayRank?.symbol ?? "")")
-        return displayRank
+        print("🏋️ Final rank for workout '\(name)': \(finalRank?.rawValue ?? "No rank") \(finalRank?.symbol ?? "")")
+        return finalRank
     }
 
     func detectPersonalRecords(comparedTo previousWorkouts: [Workout]) -> [PersonalRecord] {
