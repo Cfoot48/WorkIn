@@ -2,6 +2,7 @@ import Foundation
 import FirebaseFirestore
 import FirebaseAuth
 import Combine
+import SwiftUI
 
 class FirestoreManager: ObservableObject {
     private let db = Firestore.firestore()
@@ -325,13 +326,12 @@ class FirestoreManager: ObservableObject {
         return UserProfile(
             displayName: displayName,
             email: email,
-            height: data["height"] as? Double ?? 0,
-            weight: data["weight"] as? Double ?? 0,
-            goalType: data["goalType"] as? String ?? "maintain",
-            targetWeight: data["targetWeight"] as? Double ?? 0,
-            dailyCalorieGoal: data["dailyCalorieGoal"] as? Double ?? 2000,
-            dailyProteinGoal: data["dailyProteinGoal"] as? Double ?? 150,
-            weeklyWorkoutGoal: data["weeklyWorkoutGoal"] as? Int ?? 3
+            currentWeight: data["weight"] as? Double ?? data["currentWeight"] as? Double ?? 181,
+            goalWeight: data["targetWeight"] as? Double ?? data["goalWeight"] as? Double ?? 175,
+            height: data["height"] as? Double ?? 72,
+            dailyCalories: Int(data["dailyCalorieGoal"] as? Double ?? data["dailyCalories"] as? Double ?? 2000),
+            dailyProtein: Int(data["dailyProteinGoal"] as? Double ?? data["dailyProtein"] as? Double ?? 150),
+            weeklyWorkoutGoal: data["weeklyWorkoutGoal"] as? Int ?? 4
         )
     }
 }
@@ -355,16 +355,111 @@ enum FirestoreError: Error, LocalizedError {
 }
 
 // MARK: - User Profile Model
+enum GoalType: String, Codable, CaseIterable {
+    case cut = "Cut"
+    case bulk = "Bulk"
+    case maintain = "Maintain"
+
+    var color: Color {
+        switch self {
+        case .cut: return .red
+        case .bulk: return .green
+        case .maintain: return .blue
+        }
+    }
+}
+
 struct UserProfile: Codable {
-    let displayName: String
-    let email: String
-    let height: Double
-    let weight: Double
-    let goalType: String
-    let targetWeight: Double
-    let dailyCalorieGoal: Double
-    let dailyProteinGoal: Double
-    let weeklyWorkoutGoal: Int
+    var displayName: String
+    var email: String
+    var height: Double // in inches
+    var currentWeight: Double
+    var goalWeight: Double
+    var dailyCalories: Int
+    var dailyProtein: Int
+    var weeklyWorkoutGoal: Int
+
+    var goalType: GoalType {
+        if goalWeight < currentWeight {
+            return .cut
+        } else if goalWeight > currentWeight {
+            return .bulk
+        } else {
+            return .maintain
+        }
+    }
+
+    var heightFormatted: String {
+        let feet = Int(height) / 12
+        let inches = Int(height) % 12
+        return "\(feet)'\(inches)\""
+    }
+
+    // Keep old property names for backwards compatibility
+    var weight: Double {
+        get { currentWeight }
+        set { currentWeight = newValue }
+    }
+
+    var targetWeight: Double {
+        get { goalWeight }
+        set { goalWeight = newValue }
+    }
+
+    var dailyCalorieGoal: Double {
+        get { Double(dailyCalories) }
+        set { dailyCalories = Int(newValue) }
+    }
+
+    var dailyProteinGoal: Double {
+        get { Double(dailyProtein) }
+        set { dailyProtein = Int(newValue) }
+    }
+
+    init(displayName: String = "",
+         email: String = "",
+         currentWeight: Double = 181,
+         goalWeight: Double = 175,
+         height: Double = 72, // 6'0"
+         dailyCalories: Int = 2000,
+         dailyProtein: Int = 150,
+         weeklyWorkoutGoal: Int = 4) {
+        self.displayName = displayName
+        self.email = email
+        self.currentWeight = currentWeight
+        self.goalWeight = goalWeight
+        self.height = height
+        self.dailyCalories = dailyCalories
+        self.dailyProtein = dailyProtein
+        self.weeklyWorkoutGoal = weeklyWorkoutGoal
+    }
+}
+
+class UserProfileStore: ObservableObject {
+    @Published var profile: UserProfile {
+        didSet {
+            saveProfile()
+        }
+    }
+
+    private let userDefaultsKey = "userProfile"
+
+    init() {
+        // Try to load saved profile
+        if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
+           let decoded = try? JSONDecoder().decode(UserProfile.self, from: data) {
+            self.profile = decoded
+        } else {
+            // Use default profile
+            self.profile = UserProfile()
+        }
+    }
+
+    private func saveProfile() {
+        if let encoded = try? JSONEncoder().encode(profile) {
+            UserDefaults.standard.set(encoded, forKey: userDefaultsKey)
+        }
+    }
 }
 
 // MARK: - Date Formatter Extension

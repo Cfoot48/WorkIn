@@ -1,0 +1,13 @@
+#!/bin/bash
+echo "Please open Xcode and follow these steps:"
+echo ""
+echo "1. Open WorkIn.xcodeproj in Xcode"
+echo "2. In the Project Navigator (left sidebar), find the 'Models' folder"
+echo "3. Right-click on 'Models' and select 'Add Files to WorkIn...'"
+echo "4. Navigate to: WorkIn/Models/UserProfile.swift"
+echo "5. UNCHECK 'Copy items if needed'"
+echo "6. CHECK the 'WorkIn' target"
+echo "7. Click 'Add'"
+echo ""
+echo "The file is located at:"
+echo "/Users/caidfoot/Cursor Projects/WorkIn/WorkIn/Models/UserProfile.swift"

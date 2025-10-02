@@ -3,6 +3,7 @@ import SwiftUI
 struct ProfileView: View {
     @EnvironmentObject var authManager: AuthenticationManager
     @EnvironmentObject var themeManager: ThemeManager
+    @StateObject private var profileStore = UserProfileStore()
     @State private var showingSettings = false
     @State private var showingGoals = false
 
@@ -12,7 +13,7 @@ struct ProfileView: View {
                 VStack(spacing: 24) {
                     ProfileHeaderView(authManager: authManager)
 
-                    QuickStatsView()
+                    QuickStatsView(profile: profileStore.profile)
 
                     ProfileMenuView(
                         authManager: authManager,
@@ -28,7 +29,7 @@ struct ProfileView: View {
                 SettingsView()
             }
             .sheet(isPresented: $showingGoals) {
-                GoalsView()
+                GoalsView(profileStore: profileStore)
             }
         }
     }
@@ -62,6 +63,7 @@ struct ProfileHeaderView: View {
 }
 
 struct QuickStatsView: View {
+    let profile: UserProfile
     @EnvironmentObject var themeManager: ThemeManager
 
     var body: some View {
@@ -71,9 +73,9 @@ struct QuickStatsView: View {
                 .foregroundColor(themeManager.primaryTextColor)
 
             HStack(spacing: 16) {
-                QuickStatCard(icon: "figure.walk", title: "Height", value: "6'0\"")
-                QuickStatCard(icon: "scalemass", title: "Weight", value: "181 lbs")
-                QuickStatCard(icon: "target", title: "Goal", value: "Cut")
+                QuickStatCard(icon: "figure.walk", title: "Height", value: profile.heightFormatted)
+                QuickStatCard(icon: "scalemass", title: "Weight", value: "\(Int(profile.currentWeight)) lbs")
+                QuickStatCard(icon: "target", title: "Goal", value: profile.goalType.rawValue, color: profile.goalType.color)
             }
         }
         .padding()
@@ -86,13 +88,14 @@ struct QuickStatCard: View {
     let icon: String
     let title: String
     let value: String
+    var color: Color?
     @EnvironmentObject var themeManager: ThemeManager
 
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.title2)
-                .foregroundColor(themeManager.accentColor)
+                .foregroundColor(color ?? themeManager.accentColor)
 
             Text(title)
                 .font(.caption)
@@ -101,7 +104,7 @@ struct QuickStatCard: View {
             Text(value)
                 .font(.subheadline)
                 .fontWeight(.semibold)
-                .foregroundColor(themeManager.primaryTextColor)
+                .foregroundColor(color ?? themeManager.primaryTextColor)
         }
         .frame(maxWidth: .infinity)
         .padding()
@@ -248,28 +251,88 @@ struct SettingsView: View {
 
 struct GoalsView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var calorieGoal = "2000"
-    @State private var proteinGoal = "150"
-    @State private var workoutGoal = "4"
+    @ObservedObject var profileStore: UserProfileStore
+
+    @State private var currentWeight: String
+    @State private var goalWeight: String
+    @State private var height: String
+    @State private var dailyCalories: String
+    @State private var dailyProtein: String
+    @State private var weeklyWorkouts: String
+
+    init(profileStore: UserProfileStore) {
+        self.profileStore = profileStore
+        _currentWeight = State(initialValue: String(Int(profileStore.profile.currentWeight)))
+        _goalWeight = State(initialValue: String(Int(profileStore.profile.goalWeight)))
+        _height = State(initialValue: String(Int(profileStore.profile.height)))
+        _dailyCalories = State(initialValue: String(profileStore.profile.dailyCalories))
+        _dailyProtein = State(initialValue: String(profileStore.profile.dailyProtein))
+        _weeklyWorkouts = State(initialValue: String(profileStore.profile.weeklyWorkoutGoal))
+    }
 
     var body: some View {
         NavigationView {
             Form {
+                Section("Body Stats") {
+                    HStack {
+                        Text("Current Weight (lbs)")
+                        Spacer()
+                        TextField("181", text: $currentWeight)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 80)
+                    }
+
+                    HStack {
+                        Text("Goal Weight (lbs)")
+                        Spacer()
+                        TextField("175", text: $goalWeight)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 80)
+                    }
+
+                    HStack {
+                        Text("Height (inches)")
+                        Spacer()
+                        TextField("72", text: $height)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 80)
+                    }
+                }
+
+                Section {
+                    HStack {
+                        Text("Goal Type")
+                        Spacer()
+                        Text(calculatedGoalType.rawValue)
+                            .foregroundColor(calculatedGoalType.color)
+                            .fontWeight(.semibold)
+                    }
+                } header: {
+                    Text("Calculated Goal")
+                } footer: {
+                    Text("Goal type is automatically determined based on your current and target weight.")
+                }
+
                 Section("Nutrition Goals") {
                     HStack {
                         Text("Daily Calories")
                         Spacer()
-                        TextField("2000", text: $calorieGoal)
+                        TextField("2000", text: $dailyCalories)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
+                            .frame(width: 80)
                     }
 
                     HStack {
                         Text("Daily Protein (g)")
                         Spacer()
-                        TextField("150", text: $proteinGoal)
+                        TextField("150", text: $dailyProtein)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
+                            .frame(width: 80)
                     }
                 }
 
@@ -277,38 +340,62 @@ struct GoalsView: View {
                     HStack {
                         Text("Weekly Workouts")
                         Spacer()
-                        TextField("4", text: $workoutGoal)
+                        TextField("4", text: $weeklyWorkouts)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
-                    }
-                }
-
-                Section("Body Goals") {
-                    HStack {
-                        Text("Target Weight")
-                        Spacer()
-                        Text("180 lbs")
-                            .foregroundColor(.secondary)
-                    }
-
-                    HStack {
-                        Text("Goal Type")
-                        Spacer()
-                        Text("Cut")
-                            .foregroundColor(.secondary)
+                            .frame(width: 80)
                     }
                 }
             }
-            .navigationTitle("Goals")
+            .navigationTitle("Goals & Targets")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") { dismiss() }
+                    Button("Save") {
+                        saveProfile()
+                        dismiss()
+                    }
                 }
             }
+        }
+    }
+
+    private var calculatedGoalType: GoalType {
+        guard let current = Double(currentWeight),
+              let goal = Double(goalWeight) else {
+            return .maintain
+        }
+
+        if goal < current {
+            return .cut
+        } else if goal > current {
+            return .bulk
+        } else {
+            return .maintain
+        }
+    }
+
+    private func saveProfile() {
+        if let current = Double(currentWeight) {
+            profileStore.profile.currentWeight = current
+        }
+        if let goal = Double(goalWeight) {
+            profileStore.profile.goalWeight = goal
+        }
+        if let heightValue = Double(height) {
+            profileStore.profile.height = heightValue
+        }
+        if let calories = Int(dailyCalories) {
+            profileStore.profile.dailyCalories = calories
+        }
+        if let protein = Int(dailyProtein) {
+            profileStore.profile.dailyProtein = protein
+        }
+        if let workouts = Int(weeklyWorkouts) {
+            profileStore.profile.weeklyWorkoutGoal = workouts
         }
     }
 }

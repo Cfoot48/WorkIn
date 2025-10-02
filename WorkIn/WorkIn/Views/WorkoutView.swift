@@ -76,10 +76,12 @@ struct WorkoutRowView: View {
                         .fontWeight(.semibold)
 
                     if let rank = workout.getHighestRank() {
-                        Text(rank.symbol)
-                            .font(.title3)
+                        Image(rank.badgeImageName)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 24, height: 24)
                             .onAppear {
-                                print("🏋️ WorkoutRowView: Displaying rank \(rank.symbol) for workout '\(workout.name)'")
+                                print("🏋️ WorkoutRowView: Displaying rank \(rank.badgeImageName) for workout '\(workout.name)'")
                             }
                     }
                 }
@@ -172,6 +174,7 @@ struct ActiveWorkoutView: View {
     @State private var timer: Timer?
     @State private var elapsedTime: TimeInterval = 0
     @State private var workoutCompletion: WorkoutCompletion?
+    @State private var showingEmptyWorkoutAlert = false
 
     var body: some View {
         ScrollView {
@@ -230,6 +233,11 @@ struct ActiveWorkoutView: View {
                 print("🎉 Workout saved to store after sheet dismissed")
                 workoutCompletion = nil
             }
+        }
+        .alert("No Sets Logged", isPresented: $showingEmptyWorkoutAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Please add at least one set to an exercise before finishing your workout.")
         }
     }
 
@@ -353,6 +361,15 @@ struct ActiveWorkoutView: View {
 
     private func finishWorkout() {
         print("🎉 finishWorkout() called - starting workout completion")
+
+        // Check if any sets have been logged
+        let totalSets = workout.exercises.reduce(0) { $0 + $1.sets.count }
+        if totalSets == 0 {
+            print("⚠️ No sets logged - showing alert")
+            showingEmptyWorkoutAlert = true
+            return
+        }
+
         stopTimer()
 
         // Use the LOCAL workout variable which has the most up-to-date sets
@@ -536,8 +553,10 @@ struct WorkoutCompletionSummaryView: View {
                                 .foregroundColor(themeManager.primaryTextColor)
 
                             HStack(spacing: 16) {
-                                Text(rank.symbol)
-                                    .font(.system(size: 48))
+                                Image(rank.badgeImageName)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: 80, height: 80)
 
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(rank.rawValue)
@@ -661,18 +680,22 @@ struct WorkoutCompletionSummaryView: View {
 
     private func getRankMessage(for rank: StrengthRank) -> String {
         switch rank {
-        case .novice:
+        case .bronze:
             return "Great start on your strength journey!"
-        case .beginner:
+        case .silver:
             return "You're building solid foundations!"
-        case .intermediate:
+        case .gold:
             return "Impressive strength development!"
-        case .advanced:
+        case .platinum:
             return "You're among the strong ones!"
-        case .elite:
+        case .diamond:
             return "Outstanding strength achievement!"
-        case .worldClass:
-            return "World-class strength! Incredible!"
+        case .arnold:
+            return "Arnold-level strength! Legendary!"
+        case .hulk:
+            return "Hulk smash! Incredible power!"
+        case .superman:
+            return "Superman strength! You're unstoppable!"
         }
     }
 

@@ -307,32 +307,52 @@ class WorkoutStore: ObservableObject {
 // MARK: - Strength Ranking System
 
 enum StrengthRank: String, CaseIterable {
-    case novice = "Novice"
-    case beginner = "Beginner"
-    case intermediate = "Intermediate"
-    case advanced = "Advanced"
-    case elite = "Elite"
-    case worldClass = "World Class"
+    case bronze = "Bronze"
+    case silver = "Silver"
+    case gold = "Gold"
+    case platinum = "Platinum"
+    case diamond = "Diamond"
+    case arnold = "Arnold"
+    case hulk = "Hulk"
+    case superman = "Superman"
 
+    var badgeImageName: String {
+        switch self {
+        case .bronze: return "badge_bronze"
+        case .silver: return "badge_silver"
+        case .gold: return "badge_gold"
+        case .platinum: return "badge_platinum"
+        case .diamond: return "badge_diamond"
+        case .arnold: return "badge_arnold"
+        case .hulk: return "badge_hulk"
+        case .superman: return "badge_superman"
+        }
+    }
+
+    // Fallback emoji for compatibility
     var symbol: String {
         switch self {
-        case .novice: return "🥉"
-        case .beginner: return "🥈"
-        case .intermediate: return "🥇"
-        case .advanced: return "💎"
-        case .elite: return "👑"
-        case .worldClass: return "🏆"
+        case .bronze: return "🥉"
+        case .silver: return "🥈"
+        case .gold: return "🥇"
+        case .platinum: return "💿"
+        case .diamond: return "💎"
+        case .arnold: return "🏋️"
+        case .hulk: return "💪"
+        case .superman: return "🦸"
         }
     }
 
     var color: String {
         switch self {
-        case .novice: return "brown"
-        case .beginner: return "gray"
-        case .intermediate: return "orange"
-        case .advanced: return "blue"
-        case .elite: return "purple"
-        case .worldClass: return "red"
+        case .bronze: return "brown"
+        case .silver: return "gray"
+        case .gold: return "orange"
+        case .platinum: return "teal"
+        case .diamond: return "blue"
+        case .arnold: return "purple"
+        case .hulk: return "green"
+        case .superman: return "red"
         }
     }
 }
@@ -394,95 +414,115 @@ struct StrengthStandards {
     }
 
     private static func getSquatRank(ratio: Double) -> StrengthRank {
-        if ratio >= 2.5 { return .worldClass }
-        if ratio >= 2.0 { return .elite }
-        if ratio >= 1.75 { return .advanced }
-        if ratio >= 1.5 { return .intermediate }
-        if ratio >= 1.25 { return .beginner }
-        return .novice
+        if ratio >= 2.5 { return .superman }
+        if ratio >= 2.0 { return .hulk }
+        if ratio >= 1.75 { return .arnold }
+        if ratio >= 1.5 { return .diamond }
+        if ratio >= 1.25 { return .platinum }
+        if ratio >= 1.0 { return .gold }
+        if ratio >= 0.75 { return .silver }
+        return .bronze
     }
 
     private static func getBenchRank(ratio: Double) -> StrengthRank {
-        if ratio >= 2.0 { return .worldClass }
-        if ratio >= 1.75 { return .elite }
-        if ratio >= 1.5 { return .advanced }
-        if ratio >= 1.25 { return .intermediate }
-        if ratio >= 1.0 { return .beginner }
-        return .novice
+        if ratio >= 2.0 { return .superman }
+        if ratio >= 1.75 { return .hulk }
+        if ratio >= 1.5 { return .arnold }
+        if ratio >= 1.25 { return .diamond }
+        if ratio >= 1.0 { return .platinum }
+        if ratio >= 0.85 { return .gold }
+        if ratio >= 0.7 { return .silver }
+        return .bronze
     }
 
     private static func getDeadliftRank(ratio: Double) -> StrengthRank {
-        if ratio >= 3.0 { return .worldClass }
-        if ratio >= 2.5 { return .elite }
-        if ratio >= 2.25 { return .advanced }
-        if ratio >= 2.0 { return .intermediate }
-        if ratio >= 1.5 { return .beginner }
-        return .novice
+        if ratio >= 3.0 { return .superman }
+        if ratio >= 2.5 { return .hulk }
+        if ratio >= 2.25 { return .arnold }
+        if ratio >= 2.0 { return .diamond }
+        if ratio >= 1.75 { return .platinum }
+        if ratio >= 1.5 { return .gold }
+        if ratio >= 1.25 { return .silver }
+        return .bronze
     }
 
     private static func getOverheadPressRank(ratio: Double) -> StrengthRank {
-        if ratio >= 1.5 { return .worldClass }
-        if ratio >= 1.25 { return .elite }
-        if ratio >= 1.0 { return .advanced }
-        if ratio >= 0.85 { return .intermediate }
-        if ratio >= 0.7 { return .beginner }
-        return .novice
+        if ratio >= 1.5 { return .superman }
+        if ratio >= 1.25 { return .hulk }
+        if ratio >= 1.0 { return .arnold }
+        if ratio >= 0.85 { return .diamond }
+        if ratio >= 0.7 { return .platinum }
+        if ratio >= 0.6 { return .gold }
+        if ratio >= 0.5 { return .silver }
+        return .bronze
     }
 
     private static func getRowRank(ratio: Double) -> StrengthRank {
-        if ratio >= 1.75 { return .worldClass }
-        if ratio >= 1.5 { return .elite }
-        if ratio >= 1.25 { return .advanced }
-        if ratio >= 1.0 { return .intermediate }
-        if ratio >= 0.85 { return .beginner }
-        return .novice
+        if ratio >= 1.75 { return .superman }
+        if ratio >= 1.5 { return .hulk }
+        if ratio >= 1.25 { return .arnold }
+        if ratio >= 1.0 { return .diamond }
+        if ratio >= 0.85 { return .platinum }
+        if ratio >= 0.7 { return .gold }
+        if ratio >= 0.6 { return .silver }
+        return .bronze
     }
 
     private static func getPullUpRank(ratio: Double) -> StrengthRank {
         // For pull-ups, ratio is (bodyweight + added weight) / bodyweight
-        if ratio >= 1.8 { return .worldClass }
-        if ratio >= 1.6 { return .elite }
-        if ratio >= 1.4 { return .advanced }
-        if ratio >= 1.2 { return .intermediate }
-        if ratio >= 1.0 { return .beginner }
-        return .novice
+        if ratio >= 1.8 { return .superman }
+        if ratio >= 1.6 { return .hulk }
+        if ratio >= 1.4 { return .arnold }
+        if ratio >= 1.2 { return .diamond }
+        if ratio >= 1.0 { return .platinum }
+        if ratio >= 0.8 { return .gold }
+        if ratio >= 0.6 { return .silver }
+        return .bronze
     }
 
     private static func getDipRank(ratio: Double) -> StrengthRank {
         // For dips, ratio is (bodyweight + added weight) / bodyweight
-        if ratio >= 1.9 { return .worldClass }
-        if ratio >= 1.7 { return .elite }
-        if ratio >= 1.5 { return .advanced }
-        if ratio >= 1.3 { return .intermediate }
-        if ratio >= 1.0 { return .beginner }
-        return .novice
+        if ratio >= 1.9 { return .superman }
+        if ratio >= 1.7 { return .hulk }
+        if ratio >= 1.5 { return .arnold }
+        if ratio >= 1.3 { return .diamond }
+        if ratio >= 1.1 { return .platinum }
+        if ratio >= 0.9 { return .gold }
+        if ratio >= 0.7 { return .silver }
+        return .bronze
     }
 
     private static func getCurlRank(ratio: Double) -> StrengthRank {
-        if ratio >= 0.8 { return .worldClass }
-        if ratio >= 0.7 { return .elite }
-        if ratio >= 0.6 { return .advanced }
-        if ratio >= 0.5 { return .intermediate }
-        if ratio >= 0.4 { return .beginner }
-        return .novice
+        if ratio >= 0.8 { return .superman }
+        if ratio >= 0.7 { return .hulk }
+        if ratio >= 0.6 { return .arnold }
+        if ratio >= 0.5 { return .diamond }
+        if ratio >= 0.4 { return .platinum }
+        if ratio >= 0.35 { return .gold }
+        if ratio >= 0.3 { return .silver }
+        return .bronze
     }
 
     private static func getLegPressRank(ratio: Double) -> StrengthRank {
-        if ratio >= 4.0 { return .worldClass }
-        if ratio >= 3.5 { return .elite }
-        if ratio >= 3.0 { return .advanced }
-        if ratio >= 2.5 { return .intermediate }
-        if ratio >= 2.0 { return .beginner }
-        return .novice
+        if ratio >= 4.0 { return .superman }
+        if ratio >= 3.5 { return .hulk }
+        if ratio >= 3.0 { return .arnold }
+        if ratio >= 2.5 { return .diamond }
+        if ratio >= 2.0 { return .platinum }
+        if ratio >= 1.75 { return .gold }
+        if ratio >= 1.5 { return .silver }
+        return .bronze
     }
 
     private static func getGeneralRank(ratio: Double) -> StrengthRank {
-        if ratio >= 1.8 { return .worldClass }
-        if ratio >= 1.5 { return .elite }
-        if ratio >= 1.25 { return .advanced }
-        if ratio >= 1.0 { return .intermediate }
-        if ratio >= 0.8 { return .beginner }
-        return .novice
+        if ratio >= 1.8 { return .superman }
+        if ratio >= 1.5 { return .hulk }
+        if ratio >= 1.25 { return .arnold }
+        if ratio >= 1.0 { return .diamond }
+        if ratio >= 0.85 { return .platinum }
+        if ratio >= 0.7 { return .gold }
+        if ratio >= 0.6 { return .silver }
+        return .bronze
     }
 }
 

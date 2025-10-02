@@ -8,6 +8,7 @@ struct ActiveExerciseView: View {
     @State private var newWeight = ""
     @State private var restTime: Double = 60
     @State private var sets: [ExerciseSet]
+    @StateObject private var profileStore = UserProfileStore()
 
     let onUpdateSets: ([ExerciseSet]) -> Void
 
@@ -125,9 +126,21 @@ struct ActiveExerciseView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Weight (lbs)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    HStack(spacing: 4) {
+                        Text("Weight (lbs)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        if isBodyweightExercise() {
+                            Button("BW") {
+                                newWeight = String(Int(profileStore.profile.currentWeight))
+                            }
+                            .font(.caption2)
+                            .buttonStyle(.bordered)
+                            .controlSize(.mini)
+                        }
+                    }
+
                     TextField("135", text: $newWeight)
                         .keyboardType(.decimalPad)
                         .textFieldStyle(.roundedBorder)
@@ -185,6 +198,22 @@ struct ActiveExerciseView: View {
     private func deleteSet(at index: Int) {
         guard index >= 0 && index < sets.count else { return }
         sets.remove(at: index)
+    }
+
+    private func isBodyweightExercise() -> Bool {
+        let exerciseName = exercise.name.lowercased()
+        let bodyweightExercises = [
+            "pull up", "pull-up", "pullup",
+            "chin up", "chin-up", "chinup",
+            "push up", "push-up", "pushup",
+            "dip", "dips",
+            "muscle up", "muscle-up", "muscleup",
+            "pistol squat",
+            "handstand push up", "handstand push-up",
+            "planche", "front lever", "back lever"
+        ]
+
+        return bodyweightExercises.contains { exerciseName.contains($0) }
     }
 }
 
