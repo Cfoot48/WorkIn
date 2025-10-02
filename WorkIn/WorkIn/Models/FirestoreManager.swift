@@ -148,6 +148,31 @@ class FirestoreManager: ObservableObject {
         listeners.append(listener)
     }
 
+    func listenToNutrition(completion: @escaping ([DailyNutrition]) -> Void) {
+        guard let userID = currentUserID else { return }
+
+        print("🔥 FirestoreManager: Setting up nutrition listener...")
+        let listener = db.collection("users")
+            .document(userID)
+            .collection("nutrition")
+            .order(by: "date", descending: true)
+            .addSnapshotListener { snapshot, error in
+                guard let snapshot = snapshot else {
+                    print("🔥 Error fetching nutrition: \(error?.localizedDescription ?? "Unknown error")")
+                    return
+                }
+
+                print("🔥 FirestoreManager: Received \(snapshot.documents.count) nutrition documents from Firestore")
+                let nutrition = snapshot.documents.compactMap { document in
+                    try? self.parseNutrition(from: document.data())
+                }
+                print("🔥 FirestoreManager: Successfully parsed \(nutrition.count) nutrition entries")
+                completion(nutrition)
+            }
+
+        listeners.append(listener)
+    }
+
     func removeAllListeners() {
         listeners.forEach { $0.remove() }
         listeners.removeAll()

@@ -1,13 +1,19 @@
 import SwiftUI
 
 struct AuthenticationView: View {
-    @StateObject private var authManager = AuthenticationManager()
+    @EnvironmentObject var authManager: AuthenticationManager
+    @EnvironmentObject var workoutStore: WorkoutStore
+    @EnvironmentObject var nutritionStore: NutritionStore
+    @EnvironmentObject var themeManager: ThemeManager
     @State private var isSignUp = false
 
     var body: some View {
         if authManager.isAuthenticated {
             ContentView()
                 .environmentObject(authManager)
+                .environmentObject(workoutStore)
+                .environmentObject(nutritionStore)
+                .environmentObject(themeManager)
         } else {
             NavigationView {
                 VStack(spacing: 20) {
@@ -99,6 +105,13 @@ struct SignInView: View {
             } catch {
                 await MainActor.run {
                     isLoading = false
+                    print("🔥 Firebase Sign In Error: \(error)")
+                    print("🔥 Error Description: \(error.localizedDescription)")
+                    if let nsError = error as NSError? {
+                        print("🔥 Error Code: \(nsError.code)")
+                        print("🔥 Error Domain: \(nsError.domain)")
+                        print("🔥 User Info: \(nsError.userInfo)")
+                    }
                     errorMessage = error.localizedDescription
                 }
             }
@@ -178,6 +191,13 @@ struct SignUpView: View {
             } catch {
                 await MainActor.run {
                     isLoading = false
+                    print("🔥 Firebase Sign Up Error: \(error)")
+                    print("🔥 Error Description: \(error.localizedDescription)")
+                    if let nsError = error as NSError? {
+                        print("🔥 Error Code: \(nsError.code)")
+                        print("🔥 Error Domain: \(nsError.domain)")
+                        print("🔥 User Info: \(nsError.userInfo)")
+                    }
                     errorMessage = error.localizedDescription
                 }
             }
@@ -187,4 +207,8 @@ struct SignUpView: View {
 
 #Preview {
     AuthenticationView()
+        .environmentObject(ThemeManager())
+        .environmentObject(AuthenticationManager())
+        .environmentObject(WorkoutStore())
+        .environmentObject(NutritionStore())
 }

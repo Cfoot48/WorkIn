@@ -9,19 +9,36 @@ struct FoodSelectionView: View {
     @State private var showingManualEntry = false
     @State private var selectedFood: FoodTemplate?
     @State private var servingMultiplier: Double = 1.0
+    @State private var selectedMealType: MealType = .breakfast
 
     let onSelection: (FoodEntry) -> Void
 
     var body: some View {
         NavigationView {
             VStack {
+                // Meal type selection
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Select Meal")
+                        .font(.headline)
+                        .padding(.horizontal)
+
+                    Picker("Meal Type", selection: $selectedMealType) {
+                        ForEach(MealType.allCases, id: \.self) { mealType in
+                            Text(mealType.rawValue).tag(mealType)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
+                }
+                .padding(.bottom)
+
                 // Toggle between database search and manual entry
                 Picker("Entry Mode", selection: $showingManualEntry) {
                     Text("Search Database").tag(false)
                     Text("Manual Entry").tag(true)
                 }
                 .pickerStyle(.segmented)
-                .padding()
+                .padding(.horizontal)
 
                 if showingManualEntry {
                     manualEntryView
@@ -39,7 +56,7 @@ struct FoodSelectionView: View {
                 }
             }
             .sheet(item: $selectedFood) { food in
-                FoodDetailView(food: food) { entry in
+                FoodDetailView(food: food, mealType: selectedMealType) { entry in
                     onSelection(entry)
                     dismiss()
                 }
@@ -94,7 +111,7 @@ struct FoodSelectionView: View {
     }
 
     private var manualEntryView: some View {
-        ManualFoodEntryView { entry in
+        ManualFoodEntryView(mealType: selectedMealType) { entry in
             onSelection(entry)
             dismiss()
         }
@@ -192,6 +209,7 @@ struct NutritionBadge: View {
 struct FoodDetailView: View {
     @Environment(\.dismiss) private var dismiss
     let food: FoodTemplate
+    let mealType: MealType
     @State private var servingMultiplier: Double = 1.0
     @State private var customServingSize: String = ""
     @State private var useCustomServing = false
@@ -199,31 +217,41 @@ struct FoodDetailView: View {
     let onAdd: (FoodEntry) -> Void
 
     var finalCalories: Double {
-        if useCustomServing, let customSize = Double(customServingSize) {
-            return (food.caloriesPer100g * customSize) / 100
+        if useCustomServing, let customSize = safeCustomSize {
+            return min((food.caloriesPer100g * customSize) / 100, 99999)
         }
-        return food.caloriesPerServing * servingMultiplier
+        return min(food.caloriesPerServing * servingMultiplier, 99999)
     }
 
     var finalProtein: Double {
-        if useCustomServing, let customSize = Double(customServingSize) {
-            return (food.proteinPer100g * customSize) / 100
+        if useCustomServing, let customSize = safeCustomSize {
+            return min((food.proteinPer100g * customSize) / 100, 9999)
         }
-        return food.proteinPerServing * servingMultiplier
+        return min(food.proteinPerServing * servingMultiplier, 9999)
     }
 
     var finalCarbs: Double {
-        if useCustomServing, let customSize = Double(customServingSize) {
-            return (food.carbsPer100g * customSize) / 100
+        if useCustomServing, let customSize = safeCustomSize {
+            return min((food.carbsPer100g * customSize) / 100, 9999)
         }
-        return food.carbsPerServing * servingMultiplier
+        return min(food.carbsPerServing * servingMultiplier, 9999)
     }
 
     var finalFat: Double {
-        if useCustomServing, let customSize = Double(customServingSize) {
-            return (food.fatPer100g * customSize) / 100
+        if useCustomServing, let customSize = safeCustomSize {
+            return min((food.fatPer100g * customSize) / 100, 9999)
         }
-        return food.fatPerServing * servingMultiplier
+        return min(food.fatPerServing * servingMultiplier, 9999)
+    }
+
+    private var safeCustomSize: Double? {
+        guard let customSize = Double(customServingSize),
+              customSize > 0,
+              customSize <= 10000,
+              customSize.isFinite else {
+            return nil
+        }
+        return customSize
     }
 
     var body: some View {
@@ -315,9 +343,17 @@ struct FoodDetailView: View {
                         }
 
                         if useCustomServing {
-                            TextField("Enter grams", text: $customServingSize)
-                                .keyboardType(.decimalPad)
-                                .textFieldStyle(.roundedBorder)
+                            VStack(alignment: .leading, spacing: 4) {
+                                TextField("Enter grams", text: $customServingSize)
+                                    .keyboardType(.decimalPad)
+                                    .textFieldStyle(.roundedBorder)
+
+                                if !customServingSize.isEmpty && safeCustomSize == nil {
+                                    Text("Please enter a valid amount (1-10,000 grams)")
+                                        .font(.caption)
+                                        .foregroundColor(.red)
+                                }
+                            }
                         }
                     }
                 }
@@ -357,7 +393,7 @@ struct FoodDetailView: View {
                     Button("Add") {
                         addFood()
                     }
-                    .disabled(useCustomServing && customServingSize.isEmpty)
+                    .disabled(useCustomServing && safeCustomSize == nil)
                 }
             }
         }
@@ -369,7 +405,8 @@ struct FoodDetailView: View {
             calories: finalCalories,
             protein: finalProtein,
             carbs: finalCarbs,
-            fat: finalFat
+            fat: finalFat,
+            mealType: mealType
         )
         onAdd(entry)
         dismiss()
@@ -434,6 +471,7 @@ struct NutritionPreviewCard: View {
 }
 
 struct ManualFoodEntryView: View {
+    let mealType: MealType
     @State private var name = ""
     @State private var calories = ""
     @State private var protein = ""
@@ -468,10 +506,11 @@ struct ManualFoodEntryView: View {
     private func addFood() {
         let entry = FoodEntry(
             name: name,
-            calories: Double(calories) ?? 0,
-            protein: Double(protein) ?? 0,
-            carbs: Double(carbs) ?? 0,
-            fat: Double(fat) ?? 0
+            calories: min(Double(calories) ?? 0, 99999),
+            protein: min(Double(protein) ?? 0, 9999),
+            carbs: min(Double(carbs) ?? 0, 9999),
+            fat: min(Double(fat) ?? 0, 9999),
+            mealType: mealType
         )
         onAdd(entry)
     }

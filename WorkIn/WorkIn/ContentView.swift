@@ -2,12 +2,16 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var selectedTab = 0
-    @StateObject private var workoutStore = WorkoutStore()
+    @EnvironmentObject var workoutStore: WorkoutStore
+    @EnvironmentObject var nutritionStore: NutritionStore
+    @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var authManager: AuthenticationManager
 
     var body: some View {
         TabView(selection: $selectedTab) {
             WorkoutView()
                 .environmentObject(workoutStore)
+                .environmentObject(themeManager)
                 .tabItem {
                     Image(systemName: "dumbbell.fill")
                     Text("Workouts")
@@ -15,6 +19,8 @@ struct ContentView: View {
                 .tag(0)
 
             NutritionView()
+                .environmentObject(nutritionStore)
+                .environmentObject(themeManager)
                 .tabItem {
                     Image(systemName: "fork.knife")
                     Text("Nutrition")
@@ -23,6 +29,8 @@ struct ContentView: View {
 
             ProgressView()
                 .environmentObject(workoutStore)
+                .environmentObject(nutritionStore)
+                .environmentObject(themeManager)
                 .tabItem {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                     Text("Progress")
@@ -30,19 +38,27 @@ struct ContentView: View {
                 .tag(2)
 
             ProfileView()
+                .environmentObject(themeManager)
+                .environmentObject(authManager)
                 .tabItem {
                     Image(systemName: "person.fill")
                     Text("Profile")
                 }
                 .tag(3)
         }
-        .accentColor(.blue)
+        .accentColor(themeManager.accentColor)
+        .background(themeManager.backgroundColor)
         .task {
             await workoutStore.loadWorkouts()
+            nutritionStore.startFirebaseListeners()
         }
     }
 }
 
 #Preview {
     ContentView()
+        .environmentObject(WorkoutStore())
+        .environmentObject(NutritionStore())
+        .environmentObject(ThemeManager())
+        .environmentObject(AuthenticationManager())
 }

@@ -106,37 +106,71 @@ struct VolumeChartView: View {
         let calendar = Calendar.current
         let now = Date()
 
-        // Get last 7 weeks
+        print("🔥 VolumeChart: Processing \(workouts.count) workouts")
+        print("🔥 VolumeChart: Current date: \(now)")
+
+        // Print all workout dates for debugging
+        for workout in workouts {
+            print("🔥 VolumeChart: Workout '\(workout.name)' dated: \(workout.date)")
+        }
+
+        // Get last 7 weeks using proper calendar week calculations
         var weeklyData: [(String, Double)] = []
 
         for i in 0..<7 {
-            guard let weekStart = calendar.date(byAdding: .weekOfYear, value: -i, to: now),
-                  let weekEnd = calendar.date(byAdding: .day, value: 6, to: weekStart) else { continue }
+            // Get the start of the week properly
+            guard let targetWeek = calendar.date(byAdding: .weekOfYear, value: -i, to: now),
+                  let weekInterval = calendar.dateInterval(of: .weekOfYear, for: targetWeek) else {
+                print("🔥 VolumeChart: Failed to calculate week interval for week \(-i)")
+                continue
+            }
+
+            let weekStart = weekInterval.start
+            let weekEnd = weekInterval.end
+
+            print("🔥 VolumeChart: Week \(-i) range: \(weekStart) to \(weekEnd)")
 
             let weekWorkouts = workouts.filter { workout in
-                workout.date >= weekStart && workout.date <= weekEnd
+                workout.date >= weekStart && workout.date < weekEnd
             }
 
             let weekVolume = weekWorkouts.reduce(0) { total, workout in
-                total + getTotalVolumeForWorkout(workout)
+                let workoutVolume = getTotalVolumeForWorkout(workout)
+                print("🔥 VolumeChart: Workout '\(workout.name)' (date: \(workout.date)) volume: \(workoutVolume)")
+                return total + workoutVolume
             }
 
             let formatter = DateFormatter()
             formatter.dateFormat = "M/d"
             let weekLabel = formatter.string(from: weekStart)
 
+            print("🔥 VolumeChart: Week \(weekLabel): \(weekWorkouts.count) workouts, \(weekVolume) lbs")
             weeklyData.append((weekLabel, weekVolume))
         }
 
+        print("🔥 VolumeChart: Final weekly data: \(weeklyData)")
         return weeklyData.reversed()
     }
 
     private func getTotalVolumeForWorkout(_ workout: Workout) -> Double {
-        return workout.exercises.reduce(0) { workoutTotal, exercise in
-            workoutTotal + exercise.sets.reduce(0) { setTotal, set in
-                setTotal + (Double(set.reps) * set.weight)
+        print("🔥 VolumeChart: Analyzing workout '\(workout.name)':")
+        print("🔥 VolumeChart: - Exercise count: \(workout.exercises.count)")
+
+        let totalVolume = workout.exercises.reduce(0) { workoutTotal, exercise in
+            print("🔥 VolumeChart: - Exercise '\(exercise.name)' has \(exercise.sets.count) sets")
+
+            let exerciseVolume = exercise.sets.reduce(0) { setTotal, set in
+                let setVolume = Double(set.reps) * set.weight
+                print("🔥 VolumeChart:   - Set: \(set.reps) reps × \(set.weight) lbs = \(setVolume) lbs")
+                return setTotal + setVolume
             }
+
+            print("🔥 VolumeChart: - Exercise '\(exercise.name)' total volume: \(exerciseVolume) lbs")
+            return workoutTotal + exerciseVolume
         }
+
+        print("🔥 VolumeChart: - Workout '\(workout.name)' TOTAL VOLUME: \(totalVolume) lbs")
+        return totalVolume
     }
 }
 

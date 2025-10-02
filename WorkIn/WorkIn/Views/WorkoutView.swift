@@ -70,9 +70,24 @@ struct WorkoutRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(workout.name)
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                HStack(spacing: 6) {
+                    Text(workout.name)
+                        .font(.headline)
+                        .fontWeight(.semibold)
+
+                    if let rank = workout.getHighestRank() {
+                        Text(rank.symbol)
+                            .font(.title3)
+                            .onAppear {
+                                print("🏋️ WorkoutRowView: Displaying rank \(rank.symbol) for workout '\(workout.name)'")
+                            }
+                    }
+                }
+                .onAppear {
+                    if workout.getHighestRank() == nil {
+                        print("🏋️ WorkoutRowView: No rank found for workout '\(workout.name)'")
+                    }
+                }
 
                 Spacer()
 
@@ -149,6 +164,10 @@ struct ActiveWorkoutView: View {
     @State private var startTime = Date()
     @State private var timer: Timer?
     @State private var elapsedTime: TimeInterval = 0
+    @State private var showingCompletionSummary = false
+    @State private var completedWorkout: Workout?
+    @State private var achievedRank: StrengthRank?
+    @State private var personalRecords: [PersonalRecord] = []
 
     var body: some View {
         ScrollView {
@@ -174,6 +193,33 @@ struct ActiveWorkoutView: View {
         .onChange(of: workoutStore.currentWorkout) { newWorkout in
             if let newWorkout = newWorkout {
                 workout = newWorkout
+            }
+        }
+        .sheet(isPresented: $showingCompletionSummary) {
+            if let completedWorkout = completedWorkout {
+                WorkoutCompletionSummaryView(
+                    completedWorkout: completedWorkout,
+                    achievedRank: achievedRank,
+                    personalRecords: personalRecords,
+                    isPresented: $showingCompletionSummary
+                )
+                .onAppear {
+                    print("🎉 SUCCESS: Sheet presenting completion summary for workout: \(completedWorkout.name)")
+                }
+            } else {
+                VStack {
+                    Text("🎉 Workout Complete!")
+                        .font(.title)
+                        .padding()
+                    Text("Error: No workout data available")
+                    Button("Close") {
+                        showingCompletionSummary = false
+                    }
+                    .padding()
+                }
+                .onAppear {
+                    print("🎉 ERROR: Sheet triggered but completedWorkout is nil!")
+                }
             }
         }
     }
@@ -285,22 +331,41 @@ struct ActiveWorkoutView: View {
     }
 
     private func finishWorkout() {
+        print("🎉 finishWorkout() called - starting workout completion")
         stopTimer()
         workoutStore.currentWorkout?.duration = elapsedTime
 
         // Get the completed workout before finishing it
-        if let completedWorkout = workoutStore.currentWorkout {
-            var finalWorkout = completedWorkout
+        if let currentWorkout = workoutStore.currentWorkout {
+            print("🎉 Current workout found: \(currentWorkout.name)")
+            var finalWorkout = currentWorkout
             finalWorkout.date = Date()
             finalWorkout.duration = elapsedTime
 
-            // Add to workout store
-            workoutStore.finishCurrentWorkout()
+            // Detect personal records and rank
+            let previousWorkouts = workoutStore.workouts
+            personalRecords = finalWorkout.detectPersonalRecords(comparedTo: previousWorkouts)
+            achievedRank = finalWorkout.getHighestRank()
+            completedWorkout = finalWorkout
 
-            // Also update any ProgressData instances (this will update charts in real-time)
+            print("🎉 Workout completed with \(personalRecords.count) PRs and rank: \(achievedRank?.rawValue ?? "None")")
+            print("🎉 completedWorkout set to: \(completedWorkout?.name ?? "nil")")
+            print("🎉 About to show completion summary. Current state: \(showingCompletionSummary)")
+
+            // Show completion summary FIRST, before removing the view from hierarchy
+            showingCompletionSummary = true
+            print("🎉 Completion summary state set to: \(showingCompletionSummary)")
+
+            // Add to workout store AFTER showing the sheet
             DispatchQueue.main.async {
+                self.workoutStore.finishCurrentWorkout()
+                print("🎉 Workout store finished current workout")
+
+                // Also update any ProgressData instances (this will update charts in real-time)
                 NotificationCenter.default.post(name: NSNotification.Name("WorkoutCompleted"), object: finalWorkout)
             }
+        } else {
+            print("🎉 ERROR: No current workout found!")
         }
     }
 
@@ -408,6 +473,243 @@ struct TemplateSelectionView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Workout Completion Summary
+
+struct WorkoutCompletionSummaryView: View {
+    let completedWorkout: Workout
+    let achievedRank: StrengthRank?
+    let personalRecords: [PersonalRecord]
+    @Binding var isPresented: Bool
+    @EnvironmentObject var themeManager: ThemeManager
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Celebration Header
+                    VStack(spacing: 16) {
+                        Text("🎉 Workout Complete! 🎉")
+                            .font(.title)
+                            .fontWeight(.bold)
+                            .foregroundColor(themeManager.accentColor)
+
+                        Text(completedWorkout.name)
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(themeManager.primaryTextColor)
+
+                        Text(formatDuration(completedWorkout.duration))
+                            .font(.headline)
+                            .foregroundColor(themeManager.secondaryTextColor)
+                    }
+                    .padding()
+                    .background(themeManager.secondaryBackgroundColor)
+                    .cornerRadius(16)
+
+                    // Rank Achievement
+                    if let rank = achievedRank {
+                        VStack(spacing: 12) {
+                            Text("Strength Achievement")
+                                .font(.headline)
+                                .foregroundColor(themeManager.primaryTextColor)
+
+                            HStack(spacing: 16) {
+                                Text(rank.symbol)
+                                    .font(.system(size: 48))
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(rank.rawValue)
+                                        .font(.title2)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(themeManager.accentColor)
+
+                                    Text(getRankMessage(for: rank))
+                                        .font(.subheadline)
+                                        .foregroundColor(themeManager.secondaryTextColor)
+                                        .multilineTextAlignment(.leading)
+                                }
+                            }
+                        }
+                        .padding()
+                        .background(themeManager.cardBackgroundColor)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(themeManager.accentColor.opacity(0.3), lineWidth: 2)
+                        )
+                    }
+
+                    // Personal Records
+                    if !personalRecords.isEmpty {
+                        VStack(spacing: 12) {
+                            HStack {
+                                Text("🚀 New Personal Records!")
+                                    .font(.headline)
+                                    .foregroundColor(themeManager.accentColor)
+                                Spacer()
+                            }
+
+                            ForEach(personalRecords.indices, id: \.self) { index in
+                                let pr = personalRecords[index]
+                                PersonalRecordRowView(personalRecord: pr)
+                            }
+                        }
+                        .padding()
+                        .background(themeManager.cardBackgroundColor)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.green.opacity(0.4), lineWidth: 2)
+                        )
+                    }
+
+                    // Workout Stats
+                    VStack(spacing: 12) {
+                        Text("Workout Stats")
+                            .font(.headline)
+                            .foregroundColor(themeManager.primaryTextColor)
+
+                        HStack(spacing: 20) {
+                            StatItemView(
+                                icon: "dumbbell.fill",
+                                label: "Exercises",
+                                value: "\(completedWorkout.exercises.count)"
+                            )
+
+                            StatItemView(
+                                icon: "clock.fill",
+                                label: "Duration",
+                                value: formatDurationShort(completedWorkout.duration)
+                            )
+
+                            StatItemView(
+                                icon: "flame.fill",
+                                label: "Sets",
+                                value: "\(completedWorkout.exercises.map { $0.sets.count }.reduce(0, +))"
+                            )
+                        }
+                    }
+                    .padding()
+                    .background(themeManager.secondaryBackgroundColor)
+                    .cornerRadius(12)
+                }
+                .padding()
+            }
+            .background(themeManager.backgroundColor)
+            .navigationTitle("Summary")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        isPresented = false
+                    }
+                    .foregroundColor(themeManager.accentColor)
+                }
+            }
+        }
+    }
+
+    private func getRankMessage(for rank: StrengthRank) -> String {
+        switch rank {
+        case .novice:
+            return "Great start on your strength journey!"
+        case .beginner:
+            return "You're building solid foundations!"
+        case .intermediate:
+            return "Impressive strength development!"
+        case .advanced:
+            return "You're among the strong ones!"
+        case .elite:
+            return "Outstanding strength achievement!"
+        case .worldClass:
+            return "World-class strength! Incredible!"
+        }
+    }
+
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let hours = Int(duration) / 3600
+        let minutes = Int(duration) % 3600 / 60
+        if hours > 0 {
+            return String(format: "%dh %dm", hours, minutes)
+        } else {
+            return String(format: "%dm", minutes)
+        }
+    }
+
+    private func formatDurationShort(_ duration: TimeInterval) -> String {
+        let minutes = Int(duration) / 60
+        return "\(minutes)m"
+    }
+}
+
+struct PersonalRecordRowView: View {
+    let personalRecord: PersonalRecord
+    @EnvironmentObject var themeManager: ThemeManager
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(personalRecord.exerciseName)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(themeManager.primaryTextColor)
+
+                HStack(spacing: 8) {
+                    Text("\(Int(personalRecord.previousMax)) lbs")
+                        .foregroundColor(themeManager.secondaryTextColor)
+
+                    Image(systemName: "arrow.right")
+                        .foregroundColor(Color.green)
+
+                    Text("\(Int(personalRecord.newMax)) lbs")
+                        .fontWeight(.bold)
+                        .foregroundColor(Color.green)
+                }
+                .font(.caption)
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("+\(Int(personalRecord.improvement)) lbs")
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundColor(Color.green)
+
+                Text("+\(String(format: "%.1f", personalRecord.improvementPercentage))%")
+                    .font(.caption)
+                    .foregroundColor(themeManager.secondaryTextColor)
+            }
+        }
+        .padding(.vertical, 8)
+    }
+}
+
+struct StatItemView: View {
+    let icon: String
+    let label: String
+    let value: String
+    @EnvironmentObject var themeManager: ThemeManager
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(themeManager.accentColor)
+
+            Text(value)
+                .font(.headline)
+                .fontWeight(.bold)
+                .foregroundColor(themeManager.primaryTextColor)
+
+            Text(label)
+                .font(.caption)
+                .foregroundColor(themeManager.secondaryTextColor)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 

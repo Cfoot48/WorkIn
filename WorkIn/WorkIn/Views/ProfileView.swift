@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject var authManager: AuthenticationManager
+    @EnvironmentObject var themeManager: ThemeManager
     @State private var showingSettings = false
     @State private var showingGoals = false
 
@@ -21,6 +22,7 @@ struct ProfileView: View {
                 }
                 .padding()
             }
+            .background(themeManager.backgroundColor)
             .navigationTitle("Profile")
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
@@ -34,34 +36,39 @@ struct ProfileView: View {
 
 struct ProfileHeaderView: View {
     @ObservedObject var authManager: AuthenticationManager
+    @EnvironmentObject var themeManager: ThemeManager
 
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.circle.fill")
                 .font(.system(size: 80))
-                .foregroundColor(.blue)
+                .foregroundColor(themeManager.accentColor)
 
             VStack(spacing: 4) {
                 Text(authManager.user?.email ?? "User")
                     .font(.title2)
                     .fontWeight(.bold)
+                    .foregroundColor(themeManager.primaryTextColor)
 
                 Text("Fitness Enthusiast")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(themeManager.secondaryTextColor)
             }
         }
         .padding()
-        .background(Color.gray.opacity(0.1))
+        .background(themeManager.secondaryBackgroundColor)
         .cornerRadius(12)
     }
 }
 
 struct QuickStatsView: View {
+    @EnvironmentObject var themeManager: ThemeManager
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Quick Stats")
                 .font(.headline)
+                .foregroundColor(themeManager.primaryTextColor)
 
             HStack(spacing: 16) {
                 QuickStatCard(icon: "figure.walk", title: "Height", value: "6'0\"")
@@ -70,7 +77,7 @@ struct QuickStatsView: View {
             }
         }
         .padding()
-        .background(Color.gray.opacity(0.1))
+        .background(themeManager.secondaryBackgroundColor)
         .cornerRadius(12)
     }
 }
@@ -79,26 +86,28 @@ struct QuickStatCard: View {
     let icon: String
     let title: String
     let value: String
+    @EnvironmentObject var themeManager: ThemeManager
 
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.title2)
-                .foregroundColor(.blue)
+                .foregroundColor(themeManager.accentColor)
 
             Text(title)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(themeManager.secondaryTextColor)
 
             Text(value)
                 .font(.subheadline)
                 .fontWeight(.semibold)
+                .foregroundColor(themeManager.primaryTextColor)
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(Color.white)
+        .background(themeManager.cardBackgroundColor)
         .cornerRadius(8)
-        .shadow(radius: 1)
+        .shadow(color: themeManager.isDarkMode ? .clear : .gray.opacity(0.3), radius: 1)
     }
 }
 
@@ -158,27 +167,28 @@ struct ProfileMenuItem: View {
     let icon: String
     let title: String
     let action: () -> Void
+    @EnvironmentObject var themeManager: ThemeManager
 
     var body: some View {
         Button(action: action) {
             HStack {
                 Image(systemName: icon)
                     .font(.title3)
-                    .foregroundColor(.blue)
+                    .foregroundColor(themeManager.accentColor)
                     .frame(width: 30)
 
                 Text(title)
                     .font(.body)
-                    .foregroundColor(.primary)
+                    .foregroundColor(themeManager.primaryTextColor)
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(themeManager.secondaryTextColor)
             }
             .padding()
-            .background(Color.gray.opacity(0.05))
+            .background(themeManager.secondaryBackgroundColor.opacity(0.5))
             .cornerRadius(8)
         }
         .buttonStyle(PlainButtonStyle())
@@ -187,15 +197,15 @@ struct ProfileMenuItem: View {
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var themeManager: ThemeManager
     @State private var notificationsEnabled = true
-    @State private var darkModeEnabled = false
 
     var body: some View {
         NavigationView {
             Form {
                 Section("Preferences") {
                     Toggle("Push Notifications", isOn: $notificationsEnabled)
-                    Toggle("Dark Mode", isOn: $darkModeEnabled)
+                    Toggle("Dark Mode", isOn: $themeManager.isDarkMode)
                 }
 
                 Section("Units") {
@@ -306,4 +316,5 @@ struct GoalsView: View {
 #Preview {
     ProfileView()
         .environmentObject(AuthenticationManager())
+        .environmentObject(ThemeManager())
 }

@@ -1,41 +1,43 @@
 import SwiftUI
 
 struct ProgressView: View {
-    @StateObject private var progressData = ProgressData()
-    @StateObject private var workoutStore = WorkoutStore()
-    @StateObject private var nutritionStore = NutritionStore()
+    @EnvironmentObject var workoutStore: WorkoutStore
+    @EnvironmentObject var nutritionStore: NutritionStore
+    @EnvironmentObject var themeManager: ThemeManager
     @State private var selectedWorkout: Workout?
     @State private var showingWorkoutDetail = false
+    @State private var selectedTab = 0
 
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 24) {
-                    VStack(spacing: 16) {
-                        VolumeChartView(workouts: progressData.workoutHistory)
-                            .frame(height: 200)
-                            .padding()
-                            .background(Color.gray.opacity(0.1))
-                            .cornerRadius(12)
-                            .id(progressData.workoutHistory.count)
-
-                        CaloriesChartView(nutritionData: nutritionStore.dailyNutrition)
-                            .frame(height: 200)
-                            .padding()
-                            .background(Color.gray.opacity(0.1))
-                            .cornerRadius(12)
-                            .id(nutritionStore.dailyNutrition.count)
+            VStack(spacing: 0) {
+                // Custom Tab Bar
+                HStack {
+                    TabButton(title: "Exercise", isSelected: selectedTab == 0, color: .blue) {
+                        selectedTab = 0
                     }
-
-                    recentWorkoutsSection
-
-                    exerciseProgressSection
+                    TabButton(title: "Nutrition", isSelected: selectedTab == 1, color: .orange) {
+                        selectedTab = 1
+                    }
                 }
-                .padding()
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .background(themeManager.backgroundColor)
+
+                // Tab Content
+                TabView(selection: $selectedTab) {
+                    exerciseTabContent
+                        .tag(0)
+
+                    nutritionTabContent
+                        .tag(1)
+                }
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             }
+            .background(themeManager.backgroundColor)
             .navigationTitle("Progress")
             .onAppear {
-                progressData.loadWorkoutHistory()
+                // Data is automatically loaded via WorkoutStore Firebase listeners
             }
             .sheet(isPresented: $showingWorkoutDetail) {
                 if let workout = selectedWorkout {
@@ -45,13 +47,51 @@ struct ProgressView: View {
         }
     }
 
+    private var exerciseTabContent: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                VolumeChartView(workouts: workoutStore.workouts)
+                    .frame(height: 200)
+                    .padding()
+                    .background(themeManager.secondaryBackgroundColor)
+                    .cornerRadius(12)
+                    .id(workoutStore.workouts.count)
+
+                recentWorkoutsSection
+
+                exerciseProgressSection
+            }
+            .padding()
+            .background(themeManager.backgroundColor)
+        }
+        .background(themeManager.backgroundColor)
+    }
+
+    private var nutritionTabContent: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                CaloriesChartView(nutritionData: nutritionStore.dailyNutrition)
+                    .frame(height: 200)
+                    .padding()
+                    .background(themeManager.secondaryBackgroundColor)
+                    .cornerRadius(12)
+                    .id(nutritionStore.dailyNutrition.count)
+
+                weeklyMacrosSection
+            }
+            .padding()
+            .background(themeManager.backgroundColor)
+        }
+        .background(themeManager.backgroundColor)
+    }
+
     private var recentWorkoutsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Recent Workouts")
                 .font(.headline)
                 .padding(.horizontal)
 
-            if progressData.workoutHistory.isEmpty {
+            if workoutStore.workouts.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "figure.strengthtraining.functional")
                         .font(.system(size: 48))
@@ -70,7 +110,7 @@ struct ProgressView: View {
                 .cornerRadius(12)
             } else {
                 LazyVStack(spacing: 12) {
-                    ForEach(progressData.workoutHistory.prefix(5)) { workout in
+                    ForEach(workoutStore.workouts.prefix(5)) { workout in
                         RecentWorkoutRowView(workout: workout) {
                             selectedWorkout = workout
                             showingWorkoutDetail = true
@@ -93,7 +133,7 @@ struct ProgressView: View {
                     ForEach(getUniqueExercises(), id: \.self) { exerciseName in
                         ExerciseProgressRowView(
                             exerciseName: exerciseName,
-                            workouts: progressData.workoutHistory
+                            workouts: workoutStore.workouts
                         )
                     }
                 }
@@ -111,9 +151,94 @@ struct ProgressView: View {
         }
     }
 
+    private var weeklyMacrosSection: some View {
+        let weeklyCalories = getWeeklyMacro(\.totalCalories)
+        let weeklyProtein = getWeeklyMacro(\.totalProtein)
+        let weeklyCarbs = getWeeklyMacro(\.totalCarbs)
+        let weeklyFat = getWeeklyMacro(\.totalFat)
+
+        let hasNutritionData = weeklyCalories > 0 || weeklyProtein > 0 || weeklyCarbs > 0 || weeklyFat > 0
+
+        return Group {
+            if hasNutritionData {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Weekly Macros Summary")
+                        .font(.headline)
+                        .padding(.horizontal)
+
+                    VStack(spacing: 12) {
+                        if weeklyProtein > 0 {
+                            SimpleMacroRowView(
+                                title: "Protein",
+                                amount: weeklyProtein,
+                                unit: "g",
+                                color: .red
+                            )
+                        }
+
+                        if weeklyCarbs > 0 {
+                            SimpleMacroRowView(
+                                title: "Carbs",
+                                amount: weeklyCarbs,
+                                unit: "g",
+                                color: .blue
+                            )
+                        }
+
+                        if weeklyFat > 0 {
+                            SimpleMacroRowView(
+                                title: "Fat",
+                                amount: weeklyFat,
+                                unit: "g",
+                                color: .yellow
+                            )
+                        }
+
+                        if weeklyCalories > 0 {
+                            SimpleMacroRowView(
+                                title: "Calories",
+                                amount: weeklyCalories,
+                                unit: "cal",
+                                color: .orange
+                            )
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Weekly Macros Summary")
+                        .font(.headline)
+                        .padding(.horizontal)
+
+                    Text("Log some food entries to see your weekly nutrition summary")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+                }
+            }
+        }
+    }
+
     private func getUniqueExercises() -> [String] {
-        let allExercises = progressData.workoutHistory.flatMap { $0.exercises.map { $0.name } }
+        let allExercises = workoutStore.workouts.flatMap { $0.exercises.map { $0.name } }
         return Array(Set(allExercises)).sorted()
+    }
+
+    private func getWeeklyMacro(_ keyPath: KeyPath<DailyNutrition, Double>) -> Double {
+        let calendar = Calendar.current
+        let now = Date()
+        let weekAgo = calendar.date(byAdding: .day, value: -7, to: now) ?? now
+
+        return nutritionStore.dailyNutrition
+            .filter { $0.date >= weekAgo }
+            .reduce(0) { total, nutrition in
+                total + nutrition[keyPath: keyPath]
+            }
     }
 }
 
@@ -210,38 +335,6 @@ struct RecentWorkoutRowView: View {
     }
 }
 
-class ProgressData: ObservableObject {
-    @Published var workoutHistory: [Workout] = []
-
-    init() {
-        loadWorkoutHistory()
-
-        // Listen for workout completion notifications
-        NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("WorkoutCompleted"),
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            if let workout = notification.object as? Workout {
-                self?.addCompletedWorkout(workout)
-            }
-        }
-    }
-
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-
-    func loadWorkoutHistory() {
-        let workoutStore = WorkoutStore()
-        self.workoutHistory = workoutStore.workouts.sorted { $0.date > $1.date }
-    }
-
-    func addCompletedWorkout(_ workout: Workout) {
-        workoutHistory.insert(workout, at: 0)
-        workoutHistory.sort { $0.date > $1.date }
-    }
-}
 
 struct WorkoutDetailView: View {
     let workout: Workout
@@ -258,7 +351,7 @@ struct WorkoutDetailView: View {
                 .padding()
             }
             .navigationTitle(workout.name)
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
@@ -267,6 +360,7 @@ struct WorkoutDetailView: View {
                 }
             }
         }
+        .navigationViewStyle(StackNavigationViewStyle())
     }
 
     private var workoutSummaryCard: some View {
@@ -430,6 +524,99 @@ struct ExerciseDetailCard: View {
     }
 }
 
+struct TabButton: View {
+    let title: String
+    let isSelected: Bool
+    let color: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(isSelected ? .semibold : .regular)
+                    .foregroundColor(isSelected ? color : .secondary)
+
+                Rectangle()
+                    .frame(height: 2)
+                    .foregroundColor(isSelected ? color : .clear)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+struct MacroRowView: View {
+    let title: String
+    let amount: Double
+    let unit: String
+    let color: Color
+    let target: Double
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                Text("\(Int(amount)) \(unit)")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(color)
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("Target: \(Int(target)) \(unit)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                let percentage = target > 0 ? (amount / target) * 100 : 0
+                Text("\(Int(percentage))%")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(percentage >= 100 ? .green : percentage >= 80 ? .orange : .red)
+            }
+        }
+        .padding()
+        .background(Color.gray.opacity(0.05))
+        .cornerRadius(12)
+    }
+}
+
+struct SimpleMacroRowView: View {
+    let title: String
+    let amount: Double
+    let unit: String
+    let color: Color
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                Text("\(Int(amount)) \(unit)")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(color)
+            }
+
+            Spacer()
+        }
+        .padding()
+        .background(Color.gray.opacity(0.05))
+        .cornerRadius(12)
+    }
+}
+
 #Preview {
     ProgressView()
+        .environmentObject(WorkoutStore())
+        .environmentObject(NutritionStore())
+        .environmentObject(ThemeManager())
 }

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NutritionView: View {
-    @StateObject private var nutritionStore = NutritionStore()
+    @EnvironmentObject var nutritionStore: NutritionStore
     @State private var showingAddFood = false
 
     var body: some View {
@@ -139,7 +139,8 @@ struct MealSectionsView: View {
             ForEach(MealType.allCases, id: \.self) { mealType in
                 MealSectionView(
                     mealType: mealType,
-                    entries: todaysEntries(for: mealType)
+                    entries: todaysEntries(for: mealType),
+                    nutritionStore: nutritionStore
                 )
             }
         }
@@ -148,9 +149,7 @@ struct MealSectionsView: View {
     private func todaysEntries(for mealType: MealType) -> [FoodEntry] {
         guard let todayNutrition = nutritionStore.getTodayNutrition() else { return [] }
         return todayNutrition.entries.filter { entry in
-            // For now, we'll distribute entries across meals based on simple rules
-            // In a full implementation, you'd want to track meal type with each entry
-            return true // Show all entries for now
+            entry.mealType == mealType
         }
     }
 }
@@ -158,6 +157,10 @@ struct MealSectionsView: View {
 struct MealSectionView: View {
     let mealType: MealType
     let entries: [FoodEntry]
+    let nutritionStore: NutritionStore
+
+    @State private var editingEntry: FoodEntry?
+    @State private var showingEditSheet = false
 
     var totalCalories: Double {
         entries.reduce(0) { $0 + $1.calories }
@@ -182,12 +185,37 @@ struct MealSectionView: View {
             } else {
                 ForEach(entries) { entry in
                     FoodEntryRowView(entry: entry)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button("Delete", role: .destructive) {
+                                nutritionStore.deleteFoodEntry(entry)
+                            }
+                        }
+                        .contextMenu {
+                            Button("Edit") {
+                                editingEntry = entry
+                                showingEditSheet = true
+                            }
+                            Button("Delete", role: .destructive) {
+                                nutritionStore.deleteFoodEntry(entry)
+                            }
+                        }
                 }
             }
         }
         .padding()
         .background(Color.gray.opacity(0.05))
         .cornerRadius(8)
+        .sheet(isPresented: $showingEditSheet) {
+            if let entry = editingEntry {
+                EditFoodEntryView(
+                    entry: entry,
+                    nutritionStore: nutritionStore
+                ) {
+                    showingEditSheet = false
+                    editingEntry = nil
+                }
+            }
+        }
     }
 }
 
@@ -292,6 +320,96 @@ struct AddFoodView: View {
     }
 }
 
+struct EditFoodEntryView: View {
+    @Environment(\.dismiss) private var dismiss
+    let originalEntry: FoodEntry
+    let nutritionStore: NutritionStore
+    let onSave: () -> Void
+
+    @State private var name: String
+    @State private var calories: String
+    @State private var protein: String
+    @State private var carbs: String
+    @State private var fat: String
+    @State private var mealType: MealType
+
+    init(entry: FoodEntry, nutritionStore: NutritionStore, onSave: @escaping () -> Void) {
+        self.originalEntry = entry
+        self.nutritionStore = nutritionStore
+        self.onSave = onSave
+
+        _name = State(initialValue: entry.name)
+        _calories = State(initialValue: String(format: "%.0f", entry.calories))
+        _protein = State(initialValue: String(format: "%.1f", entry.protein))
+        _carbs = State(initialValue: String(format: "%.1f", entry.carbs))
+        _fat = State(initialValue: String(format: "%.1f", entry.fat))
+        _mealType = State(initialValue: entry.mealType)
+    }
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("Food Details") {
+                    TextField("Food name", text: $name)
+                    TextField("Calories", text: $calories)
+                        .keyboardType(.numberPad)
+                    TextField("Protein (g)", text: $protein)
+                        .keyboardType(.decimalPad)
+                    TextField("Carbs (g)", text: $carbs)
+                        .keyboardType(.decimalPad)
+                    TextField("Fat (g)", text: $fat)
+                        .keyboardType(.decimalPad)
+                }
+
+                Section("Meal Type") {
+                    Picker("Meal Type", selection: $mealType) {
+                        ForEach(MealType.allCases, id: \.self) { mealType in
+                            Text(mealType.rawValue).tag(mealType)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+            }
+            .navigationTitle("Edit Food")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        saveChanges()
+                    }
+                    .disabled(name.isEmpty || calories.isEmpty)
+                }
+            }
+        }
+    }
+
+    private func saveChanges() {
+        // Create updated entry with safe limits
+        let updatedEntry = FoodEntry(
+            name: name,
+            calories: min(max(Double(calories) ?? 0, 0), 99999),
+            protein: min(max(Double(protein) ?? 0, 0), 9999),
+            carbs: min(max(Double(carbs) ?? 0, 0), 9999),
+            fat: min(max(Double(fat) ?? 0, 0), 9999),
+            mealType: mealType
+        )
+
+        // Update the entry
+        nutritionStore.updateFoodEntry(originalEntry, with: updatedEntry)
+
+        onSave()
+        dismiss()
+    }
+}
+
 #Preview {
     NutritionView()
+        .environmentObject(NutritionStore())
+        .environmentObject(ThemeManager())
 }
