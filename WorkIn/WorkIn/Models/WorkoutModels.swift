@@ -62,12 +62,6 @@ class WorkoutStore: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.setupFirestoreListeners()
         }
-
-        // Test the ranking system immediately
-        testRankingSystem()
-
-        // TEMPORARILY: Load sample data immediately to show rankings
-        loadSampleData()
     }
 
     private func testRankingSystem() {

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WorkoutView: View {
     @EnvironmentObject var workoutStore: WorkoutStore
+    @EnvironmentObject var profileStore: UserProfileStore
     @State private var showingExerciseSelection = false
 
     var body: some View {
@@ -11,10 +12,11 @@ struct WorkoutView: View {
                     ActiveWorkoutView(
                         workout: currentWorkout,
                         workoutStore: workoutStore,
-                        showingExerciseSelection: $showingExerciseSelection
+                        showingExerciseSelection: $showingExerciseSelection,
+                        bodyWeight: profileStore.profile.currentWeight
                     )
                 } else {
-                    WorkoutHistoryView(workouts: workoutStore.workouts, workoutStore: workoutStore)
+                    WorkoutHistoryView(workouts: workoutStore.workouts, workoutStore: workoutStore, bodyWeight: profileStore.profile.currentWeight)
                 }
             }
             .navigationTitle("Workouts")
@@ -52,11 +54,12 @@ extension DateFormatter {
 struct WorkoutHistoryView: View {
     let workouts: [Workout]
     @ObservedObject var workoutStore: WorkoutStore
+    let bodyWeight: Double
 
     var body: some View {
         List {
             ForEach(workouts) { workout in
-                WorkoutRowView(workout: workout)
+                WorkoutRowView(workout: workout, bodyWeight: bodyWeight)
             }
             .onDelete(perform: workoutStore.deleteWorkouts)
         }
@@ -66,30 +69,14 @@ struct WorkoutHistoryView: View {
 
 struct WorkoutRowView: View {
     let workout: Workout
+    let bodyWeight: Double
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                HStack(spacing: 6) {
-                    Text(workout.name)
-                        .font(.headline)
-                        .fontWeight(.semibold)
-
-                    if let rank = workout.getHighestRank() {
-                        Image(rank.badgeImageName)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 24, height: 24)
-                            .onAppear {
-                                print("🏋️ WorkoutRowView: Displaying rank \(rank.badgeImageName) for workout '\(workout.name)'")
-                            }
-                    }
-                }
-                .onAppear {
-                    if workout.getHighestRank() == nil {
-                        print("🏋️ WorkoutRowView: No rank found for workout '\(workout.name)'")
-                    }
-                }
+                Text(workout.name)
+                    .font(.headline)
+                    .fontWeight(.semibold)
 
                 Spacer()
 
@@ -98,17 +85,36 @@ struct WorkoutRowView: View {
                     .foregroundColor(.secondary)
             }
 
-            HStack {
-                Text("\(workout.exercises.count) exercises")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-
-                Spacer()
-
+            HStack(alignment: .center) {
+                // Duration on the left
                 if workout.duration > 0 {
                     Text(formatDuration(workout.duration))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                // Large rank badge in the center
+                if let rank = workout.getHighestRank(bodyWeight: bodyWeight) {
+                    Image(rank.badgeImageName)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 60, height: 60)
+                        .padding(.horizontal, 8)
+                        .onAppear {
+                            print("🏋️ WorkoutRowView: Displaying rank \(rank.badgeImageName) for workout '\(workout.name)' (bodyweight: \(bodyWeight) lbs)")
+                        }
+                }
+
+                // Exercise count on the right
+                Text("\(workout.exercises.count) exercises")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .onAppear {
+                if workout.getHighestRank(bodyWeight: bodyWeight) == nil {
+                    print("🏋️ WorkoutRowView: No rank found for workout '\(workout.name)' (bodyweight: \(bodyWeight) lbs)")
                 }
             }
 
@@ -170,6 +176,7 @@ struct ActiveWorkoutView: View {
     @State var workout: Workout
     @ObservedObject var workoutStore: WorkoutStore
     @Binding var showingExerciseSelection: Bool
+    let bodyWeight: Double
     @State private var startTime = Date()
     @State private var timer: Timer?
     @State private var elapsedTime: TimeInterval = 0
@@ -389,9 +396,9 @@ struct ActiveWorkoutView: View {
         // Detect personal records and rank
         let previousWorkouts = workoutStore.workouts
         let detectedPRs = finalWorkout.detectPersonalRecords(comparedTo: previousWorkouts)
-        let detectedRank = finalWorkout.getHighestRank()
+        let detectedRank = finalWorkout.getHighestRank(bodyWeight: bodyWeight)
 
-        print("🎉 Workout completed with \(detectedPRs.count) PRs and rank: \(detectedRank?.rawValue ?? "None")")
+        print("🎉 Workout completed with \(detectedPRs.count) PRs and rank: \(detectedRank?.rawValue ?? "None") (bodyweight: \(bodyWeight) lbs)")
 
         // Create completion object with all data bundled together
         let completion = WorkoutCompletion(

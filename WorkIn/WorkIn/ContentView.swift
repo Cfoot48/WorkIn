@@ -6,12 +6,14 @@ struct ContentView: View {
     @EnvironmentObject var nutritionStore: NutritionStore
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var authManager: AuthenticationManager
+    @EnvironmentObject var profileStore: UserProfileStore
 
     var body: some View {
         TabView(selection: $selectedTab) {
             WorkoutView()
                 .environmentObject(workoutStore)
                 .environmentObject(themeManager)
+                .environmentObject(profileStore)
                 .tabItem {
                     Image(systemName: "dumbbell.fill")
                     Text("Workouts")

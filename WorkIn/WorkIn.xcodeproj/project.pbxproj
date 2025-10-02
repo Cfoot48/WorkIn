@@ -32,7 +32,8 @@
 		F4011BC82E8BAE2500B1C94E /* AuthenticationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4011BC72E8BAE2500B1C94E /* AuthenticationView.swift */; };
 		F4011BCA2E8BB1D600B1C94E /* FirestoreManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4011BC92E8BB1D600B1C94E /* FirestoreManager.swift */; };
 		F4011BCC2E8BB35A00B1C94E /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = F4011BCB2E8BB35A00B1C94E /* GoogleService-Info.plist */; };
-/* End PBXBuildFile section */
+		F4A93B5BA8488C7C4453B7C9 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4BA0F54FA2018BFFEAAEBD3 /* OnboardingView.swift */; };
+	/* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		CE1F71AC2CAE00002900ABCD /* WorkIn.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WorkIn.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -58,7 +59,8 @@
 		F4011BC72E8BAE2500B1C94E /* AuthenticationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationView.swift; sourceTree = "<group>"; };
 		F4011BC92E8BB1D600B1C94E /* FirestoreManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirestoreManager.swift; sourceTree = "<group>"; };
 		F4011BCB2E8BB35A00B1C94E /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
-/* End PBXFileReference section */
+		F4BA0F54FA2018BFFEAAEBD3 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+	/* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		CE1F71A92CAE00002900ABCD /* Frameworks */ = {
@@ -132,6 +134,7 @@
 			children = (
 				F4011BC72E8BAE2500B1C94E /* AuthenticationView.swift */,
 				CE1F71C12CAE00002900ABCD /* WorkoutView.swift */,
+				F4BA0F54FA2018BFFEAAEBD3 /* OnboardingView.swift */,
 				CE1F71C32CAE00002900ABCD /* NutritionView.swift */,
 				CE1F71C52CAE00002900ABCD /* ProgressView.swift */,
 				CE1F71C72CAE00002900ABCD /* ProfileView.swift */,
@@ -229,6 +232,7 @@
 				CE1F71BE2CAE00002900ABCD /* WorkoutModels.swift in Sources */,
 				CE1F71C02CAE00002900ABCD /* NutritionModels.swift in Sources */,
 				CE1F71C22CAE00002900ABCD /* WorkoutView.swift in Sources */,
+				F4A93B5BA8488C7C4453B7C9 /* OnboardingView.swift in Sources */,
 				CE1F71C42CAE00002900ABCD /* NutritionView.swift in Sources */,
 				CE1F71C62CAE00002900ABCD /* ProgressView.swift in Sources */,
 				CE1F71C82CAE00002900ABCD /* ProfileView.swift in Sources */,

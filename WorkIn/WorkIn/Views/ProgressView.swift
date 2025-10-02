@@ -7,6 +7,8 @@ struct ProgressView: View {
     @State private var selectedWorkout: Workout?
     @State private var showingWorkoutDetail = false
     @State private var selectedTab = 0
+    @State private var exerciseSearchText = ""
+    @State private var expandedCategories: Set<ExerciseCategory> = Set(ExerciseCategory.allCases)
 
     var body: some View {
         NavigationView {
@@ -128,16 +130,59 @@ struct ProgressView: View {
                 .font(.headline)
                 .padding(.horizontal)
 
-            if !getUniqueExercises().isEmpty {
-                LazyVStack(spacing: 12) {
-                    ForEach(getUniqueExercises(), id: \.self) { exerciseName in
-                        ExerciseProgressRowView(
-                            exerciseName: exerciseName,
-                            workouts: workoutStore.workouts
-                        )
+            // Search bar
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.gray)
+                TextField("Search exercises...", text: $exerciseSearchText)
+                    .textFieldStyle(PlainTextFieldStyle())
+
+                if !exerciseSearchText.isEmpty {
+                    Button(action: { exerciseSearchText = "" }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.gray)
                     }
                 }
-                .padding(.horizontal)
+            }
+            .padding(10)
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(8)
+            .padding(.horizontal)
+
+            if !getUniqueExercises().isEmpty {
+                let groupedExercises = getGroupedExercises()
+
+                if groupedExercises.isEmpty {
+                    Text("No exercises found")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+                } else {
+                    LazyVStack(spacing: 12) {
+                        ForEach(ExerciseCategory.allCases, id: \.self) { category in
+                            if let exercises = groupedExercises[category], !exercises.isEmpty {
+                                ExerciseCategorySection(
+                                    category: category,
+                                    exercises: exercises,
+                                    workouts: workoutStore.workouts,
+                                    isExpanded: expandedCategories.contains(category),
+                                    onToggle: {
+                                        if expandedCategories.contains(category) {
+                                            expandedCategories.remove(category)
+                                        } else {
+                                            expandedCategories.insert(category)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                }
             } else {
                 Text("Complete workouts to see exercise progress")
                     .font(.subheadline)
@@ -227,6 +272,63 @@ struct ProgressView: View {
     private func getUniqueExercises() -> [String] {
         let allExercises = workoutStore.workouts.flatMap { $0.exercises.map { $0.name } }
         return Array(Set(allExercises)).sorted()
+    }
+
+    private func getGroupedExercises() -> [ExerciseCategory: [String]] {
+        let allExercises = getUniqueExercises()
+
+        // Filter by search text
+        let filteredExercises = exerciseSearchText.isEmpty
+            ? allExercises
+            : allExercises.filter { $0.lowercased().contains(exerciseSearchText.lowercased()) }
+
+        // Group exercises by their category from the exercise database
+        var grouped: [ExerciseCategory: [String]] = [:]
+
+        for exerciseName in filteredExercises {
+            // Find the exercise in the database to get its category
+            if let template = ExerciseDatabase.exercises.first(where: { $0.name == exerciseName }) {
+                grouped[template.category, default: []].append(exerciseName)
+            } else {
+                // If not found in database, try to infer category from muscle groups or default to Push
+                let category = inferCategoryFromName(exerciseName)
+                grouped[category, default: []].append(exerciseName)
+            }
+        }
+
+        // Sort exercises within each category
+        for category in grouped.keys {
+            grouped[category]?.sort()
+        }
+
+        return grouped
+    }
+
+    private func inferCategoryFromName(_ name: String) -> ExerciseCategory {
+        let lowercased = name.lowercased()
+
+        // Pull exercises
+        if lowercased.contains("pull") || lowercased.contains("row") ||
+           lowercased.contains("curl") || lowercased.contains("lat") ||
+           lowercased.contains("deadlift") || lowercased.contains("shrug") {
+            return .pull
+        }
+
+        // Legs exercises
+        if lowercased.contains("squat") || lowercased.contains("leg") ||
+           lowercased.contains("lunge") || lowercased.contains("calf") ||
+           lowercased.contains("glute") || lowercased.contains("hamstring") {
+            return .legs
+        }
+
+        // Core exercises
+        if lowercased.contains("ab") || lowercased.contains("plank") ||
+           lowercased.contains("crunch") || lowercased.contains("core") {
+            return .core
+        }
+
+        // Default to push (chest, shoulders, triceps)
+        return .push
     }
 
     private func getWeeklyMacro(_ keyPath: KeyPath<DailyNutrition, Double>) -> Double {
@@ -611,6 +713,76 @@ struct SimpleMacroRowView: View {
         .padding()
         .background(Color.gray.opacity(0.05))
         .cornerRadius(12)
+    }
+}
+
+struct ExerciseCategorySection: View {
+    let category: ExerciseCategory
+    let exercises: [String]
+    let workouts: [Workout]
+    let isExpanded: Bool
+    let onToggle: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Category header
+            Button(action: onToggle) {
+                HStack {
+                    Image(systemName: categoryIcon)
+                        .font(.headline)
+                        .foregroundColor(categoryColor)
+                        .frame(width: 24)
+
+                    Text(category.rawValue)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+
+                    Text("(\(exercises.count))")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    Spacer()
+
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .background(categoryColor.opacity(0.1))
+                .cornerRadius(8)
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            // Exercise list (collapsible)
+            if isExpanded {
+                VStack(spacing: 8) {
+                    ForEach(exercises, id: \.self) { exerciseName in
+                        ExerciseProgressRowView(
+                            exerciseName: exerciseName,
+                            workouts: workouts
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private var categoryIcon: String {
+        switch category {
+        case .push: return "arrow.up.circle.fill"
+        case .pull: return "arrow.down.circle.fill"
+        case .legs: return "figure.walk"
+        case .core: return "circle.grid.cross.fill"
+        }
+    }
+
+    private var categoryColor: Color {
+        switch category {
+        case .push: return .blue
+        case .pull: return .green
+        case .legs: return .orange
+        case .core: return .purple
+        }
     }
 }
 

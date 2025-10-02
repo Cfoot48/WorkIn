@@ -5,15 +5,24 @@ struct AuthenticationView: View {
     @EnvironmentObject var workoutStore: WorkoutStore
     @EnvironmentObject var nutritionStore: NutritionStore
     @EnvironmentObject var themeManager: ThemeManager
+    @StateObject private var profileStore = UserProfileStore()
     @State private var isSignUp = false
 
     var body: some View {
         if authManager.isAuthenticated {
-            ContentView()
-                .environmentObject(authManager)
-                .environmentObject(workoutStore)
-                .environmentObject(nutritionStore)
-                .environmentObject(themeManager)
+            if !profileStore.hasCompletedOnboarding {
+                OnboardingView(
+                    profileStore: profileStore,
+                    isCompleted: $profileStore.hasCompletedOnboarding
+                )
+            } else {
+                ContentView()
+                    .environmentObject(authManager)
+                    .environmentObject(workoutStore)
+                    .environmentObject(nutritionStore)
+                    .environmentObject(themeManager)
+                    .environmentObject(profileStore)
+            }
         } else {
             NavigationView {
                 VStack(spacing: 20) {

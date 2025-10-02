@@ -9,27 +9,34 @@ struct ProfileView: View {
 
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 24) {
-                    ProfileHeaderView(authManager: authManager)
+            if !profileStore.hasCompletedOnboarding {
+                OnboardingView(
+                    profileStore: profileStore,
+                    isCompleted: $profileStore.hasCompletedOnboarding
+                )
+            } else {
+                ScrollView {
+                    VStack(spacing: 24) {
+                        ProfileHeaderView(authManager: authManager)
 
-                    QuickStatsView(profile: profileStore.profile)
+                        QuickStatsView(profile: profileStore.profile)
 
-                    ProfileMenuView(
-                        authManager: authManager,
-                        showingSettings: $showingSettings,
-                        showingGoals: $showingGoals
-                    )
+                        ProfileMenuView(
+                            authManager: authManager,
+                            showingSettings: $showingSettings,
+                            showingGoals: $showingGoals
+                        )
+                    }
+                    .padding()
                 }
-                .padding()
-            }
-            .background(themeManager.backgroundColor)
-            .navigationTitle("Profile")
-            .sheet(isPresented: $showingSettings) {
-                SettingsView()
-            }
-            .sheet(isPresented: $showingGoals) {
-                GoalsView(profileStore: profileStore)
+                .background(themeManager.backgroundColor)
+                .navigationTitle("Profile")
+                .sheet(isPresented: $showingSettings) {
+                    SettingsView()
+                }
+                .sheet(isPresented: $showingGoals) {
+                    GoalsView(profileStore: profileStore)
+                }
             }
         }
     }
@@ -161,6 +168,17 @@ struct ProfileMenuView: View {
                 icon: "questionmark.circle",
                 title: "Help & Support",
                 action: { }
+            )
+
+            // DEBUG: Reset Onboarding
+            ProfileMenuItem(
+                icon: "arrow.counterclockwise",
+                title: "Reset Onboarding (DEBUG)",
+                action: {
+                    UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
+                    UserDefaults.standard.removeObject(forKey: "userProfile")
+                    print("🔄 Onboarding reset - restart app to see onboarding")
+                }
             )
         }
     }

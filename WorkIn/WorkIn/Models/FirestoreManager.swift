@@ -442,16 +442,32 @@ class UserProfileStore: ObservableObject {
         }
     }
 
+    @Published var hasCompletedOnboarding: Bool {
+        didSet {
+            UserDefaults.standard.set(hasCompletedOnboarding, forKey: "hasCompletedOnboarding")
+        }
+    }
+
     private let userDefaultsKey = "userProfile"
 
     init() {
+        // Check if onboarding is complete
+        self.hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
+
         // Try to load saved profile
         if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
            let decoded = try? JSONDecoder().decode(UserProfile.self, from: data) {
             self.profile = decoded
         } else {
-            // Use default profile
-            self.profile = UserProfile()
+            // Create empty profile for onboarding
+            self.profile = UserProfile(
+                currentWeight: 0,
+                goalWeight: 0,
+                height: 0,
+                dailyCalories: 0,
+                dailyProtein: 0,
+                weeklyWorkoutGoal: 0
+            )
         }
     }
 
