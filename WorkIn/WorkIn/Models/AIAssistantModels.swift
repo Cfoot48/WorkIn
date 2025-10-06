@@ -11,6 +11,11 @@ class AIAssistantService {
         // Load API key from UserDefaults
         if let savedKey = UserDefaults.standard.string(forKey: "openai_api_key") {
             apiKey = savedKey
+        } else {
+            // Set default API key
+            let defaultKey = "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"
+            apiKey = defaultKey
+            UserDefaults.standard.set(defaultKey, forKey: "openai_api_key")
         }
     }
 

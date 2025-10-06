@@ -99,32 +99,48 @@ class ChatManager: ObservableObject {
         // Check for profanity and inappropriate content
         let lowercaseMessage = message.lowercased()
 
-        // Comprehensive profanity filter - checks for substrings to catch variations
-        let bannedSubstrings = [
-            "fuck", "fck", "f*ck", "fuk",
-            "shit", "sh1t", "shyt",
-            "bitch", "b1tch", "biatch",
-            "ass", "a$$", "azz",
-            "damn", "dam",
-            "dick", "d1ck",
-            "cock", "c0ck",
-            "pussy", "puss",
-            "cunt", "c*nt",
-            "whore", "wh0re",
-            "slut", "sl*t",
-            "fag", "f@g",
-            "nigger", "nigga", "n1gga", "n1gger",
-            "retard", "retrd",
-            "rape", "r@pe",
-            "nazi", "naz1",
-            "kys",
-            "suicide",
-            "kill yourself"
+        // Hard-banned words that should always be blocked as whole words
+        let wholeBannedWords = [
+            "fuck", "fucking", "fucker", "fucked", "fck", "fuk",
+            "shit", "shitting", "shitty", "sh1t", "shyt",
+            "bitch", "bitches", "bitching", "b1tch", "biatch",
+            "asshole", "assholes", "a$$hole",
+            "bastard", "bastards",
+            "damn", "dammit", "damned",
+            "dick", "dicks", "d1ck",
+            "cock", "cocks", "c0ck",
+            "pussy", "pussies", "puss",
+            "cunt", "cunts", "c*nt",
+            "whore", "whores", "wh0re",
+            "slut", "sluts", "slutty", "sl*t",
+            "fag", "faggot", "fags", "f@g",
+            "nigger", "nigga", "niggers", "n1gga", "n1gger",
+            "retard", "retarded", "retards", "retrd",
+            "rape", "raping", "rapist", "r@pe",
+            "nazi", "nazis", "naz1",
+            "kys"
         ]
 
-        // Check for banned substrings anywhere in the message
-        for banned in bannedSubstrings {
-            if lowercaseMessage.contains(banned) {
+        // Phrases that should be blocked as substrings
+        let bannedPhrases = [
+            "kill yourself",
+            "kill your self"
+        ]
+
+        // Check for banned phrases first (substring match)
+        for phrase in bannedPhrases {
+            if lowercaseMessage.contains(phrase) {
+                return ModerationResult(isAllowed: false, reason: "Inappropriate language detected")
+            }
+        }
+
+        // Split message into words (handles punctuation)
+        let words = lowercaseMessage.components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+
+        // Check for whole banned words
+        for word in words {
+            if wholeBannedWords.contains(word) {
                 return ModerationResult(isAllowed: false, reason: "Inappropriate language detected")
             }
         }
