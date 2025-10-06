@@ -169,6 +169,7 @@ struct ProgressView: View {
                                     category: category,
                                     exercises: exercises,
                                     workouts: workoutStore.workouts,
+                                    workoutStore: workoutStore,
                                     isExpanded: expandedCategories.contains(category),
                                     onToggle: {
                                         if expandedCategories.contains(category) {
@@ -720,6 +721,7 @@ struct ExerciseCategorySection: View {
     let category: ExerciseCategory
     let exercises: [String]
     let workouts: [Workout]
+    @ObservedObject var workoutStore: WorkoutStore
     let isExpanded: Bool
     let onToggle: () -> Void
 
@@ -759,7 +761,8 @@ struct ExerciseCategorySection: View {
                     ForEach(exercises, id: \.self) { exerciseName in
                         ExerciseProgressRowView(
                             exerciseName: exerciseName,
-                            workouts: workouts
+                            workouts: workouts,
+                            workoutStore: workoutStore
                         )
                     }
                 }

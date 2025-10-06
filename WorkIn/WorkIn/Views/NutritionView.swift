@@ -3,6 +3,12 @@ import SwiftUI
 struct NutritionView: View {
     @EnvironmentObject var nutritionStore: NutritionStore
     @State private var showingAddFood = false
+    @State private var showingBarcodeScanner = false
+    @State private var showingScannedFood = false
+    @State private var scannedFoodData: ScannedFoodData?
+    @State private var isLoadingBarcode = false
+    @State private var barcodeError: String?
+    @State private var showBarcodeError = false
 
     var body: some View {
         NavigationView {
@@ -16,6 +22,12 @@ struct NutritionView: View {
             }
             .navigationTitle("Nutrition")
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: { showingBarcodeScanner = true }) {
+                        Image(systemName: "barcode.viewfinder")
+                    }
+                }
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showingAddFood = true }) {
                         Image(systemName: "plus")
@@ -25,6 +37,75 @@ struct NutritionView: View {
             .sheet(isPresented: $showingAddFood) {
                 FoodSelectionView { foodEntry in
                     nutritionStore.addFoodEntry(foodEntry)
+                }
+            }
+            .sheet(isPresented: $showingBarcodeScanner) {
+                BarcodeScannerView { barcode in
+                    handleScannedBarcode(barcode)
+                }
+            }
+            .sheet(isPresented: $showingScannedFood) {
+                if let foodData = scannedFoodData {
+                    ScannedFoodDetailView(scannedFood: foodData) { foodEntry in
+                        nutritionStore.addFoodEntry(foodEntry)
+                    }
+                }
+            }
+            .alert("Barcode Error", isPresented: $showBarcodeError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(barcodeError ?? "Unknown error")
+            }
+            .overlay {
+                if isLoadingBarcode {
+                    ZStack {
+                        Color.black.opacity(0.4)
+                            .ignoresSafeArea()
+
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.5)
+
+                            Text("Looking up product...")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                        }
+                        .padding(32)
+                        .background(Color.gray.opacity(0.9))
+                        .cornerRadius(16)
+                    }
+                }
+            }
+        }
+    }
+
+    private func handleScannedBarcode(_ barcode: String) {
+        isLoadingBarcode = true
+        print("📷 Scanned barcode: \(barcode)")
+
+        Task {
+            do {
+                let foodData = try await BarcodeNutritionService.shared.fetchNutritionData(barcode: barcode)
+                print("✅ Successfully fetched food data: \(foodData.name)")
+                await MainActor.run {
+                    isLoadingBarcode = false
+                    scannedFoodData = foodData
+                    showingScannedFood = true
+                }
+            } catch let error as BarcodeError {
+                print("❌ BarcodeError: \(error.localizedDescription ?? "Unknown")")
+                await MainActor.run {
+                    isLoadingBarcode = false
+                    barcodeError = error.localizedDescription
+                    showBarcodeError = true
+                }
+            } catch {
+                print("❌ Unexpected error: \(error.localizedDescription)")
+                print("❌ Error details: \(error)")
+                await MainActor.run {
+                    isLoadingBarcode = false
+                    barcodeError = "Error: \(error.localizedDescription)\n\nBarcode: \(barcode)"
+                    showBarcodeError = true
                 }
             }
         }

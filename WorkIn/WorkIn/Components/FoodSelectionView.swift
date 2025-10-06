@@ -526,6 +526,575 @@ extension FoodTemplate: Hashable {
     }
 }
 
+// MARK: - Barcode Scanner Components
+
+import AVFoundation
+
+struct BarcodeScannerView: View {
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var viewModel = BarcodeScannerViewModel()
+    let onBarcodeScanned: (String) -> Void
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                // Camera preview
+                BarcodeCameraPreview(session: viewModel.captureSession)
+                    .ignoresSafeArea()
+
+                // Scanning overlay
+                VStack {
+                    Spacer()
+
+                    // Scanning frame
+                    Rectangle()
+                        .stroke(Color.green, lineWidth: 3)
+                        .frame(width: 280, height: 200)
+                        .overlay(
+                            VStack {
+                                if viewModel.isScanning {
+                                    Text("Scanning...")
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                        .padding(8)
+                                        .background(Color.black.opacity(0.7))
+                                        .cornerRadius(8)
+                                } else {
+                                    Text("Position barcode in frame")
+                                        .font(.subheadline)
+                                        .foregroundColor(.white)
+                                        .padding(8)
+                                        .background(Color.black.opacity(0.7))
+                                        .cornerRadius(8)
+                                }
+                            }
+                        )
+
+                    Spacer()
+
+                    // Instructions
+                    VStack(spacing: 8) {
+                        Text("Align barcode within the frame")
+                            .font(.headline)
+                            .foregroundColor(.white)
+
+                        Text("The barcode will be scanned automatically")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                    .padding()
+                    .background(Color.black.opacity(0.7))
+                    .cornerRadius(12)
+                    .padding()
+                }
+            }
+            .navigationTitle("Scan Barcode")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                    .foregroundColor(.white)
+                }
+
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if viewModel.torchAvailable {
+                        Button(action: { viewModel.toggleTorch() }) {
+                            Image(systemName: viewModel.torchOn ? "flashlight.on.fill" : "flashlight.off.fill")
+                                .foregroundColor(.white)
+                        }
+                    }
+                }
+            }
+            .alert("Camera Access Required", isPresented: $viewModel.showPermissionAlert) {
+                Button("Settings") {
+                    if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(settingsURL)
+                    }
+                }
+                Button("Cancel", role: .cancel) {
+                    dismiss()
+                }
+            } message: {
+                Text("Please allow camera access in Settings to scan barcodes.")
+            }
+            .alert("Error", isPresented: $viewModel.showErrorAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(viewModel.errorMessage)
+            }
+        }
+        .onAppear {
+            viewModel.startScanning { barcode in
+                onBarcodeScanned(barcode)
+                dismiss()
+            }
+        }
+        .onDisappear {
+            viewModel.stopScanning()
+        }
+    }
+}
+
+// Camera preview layer
+struct BarcodeCameraPreview: UIViewRepresentable {
+    let session: AVCaptureSession
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        view.backgroundColor = .black
+
+        let previewLayer = AVCaptureVideoPreviewLayer(session: session)
+        previewLayer.videoGravity = .resizeAspectFill
+        view.layer.addSublayer(previewLayer)
+
+        context.coordinator.previewLayer = previewLayer
+
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        DispatchQueue.main.async {
+            context.coordinator.previewLayer?.frame = uiView.bounds
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    class Coordinator {
+        var previewLayer: AVCaptureVideoPreviewLayer?
+    }
+}
+
+// ViewModel for barcode scanner
+class BarcodeScannerViewModel: NSObject, ObservableObject, AVCaptureMetadataOutputObjectsDelegate {
+    @Published var isScanning = false
+    @Published var showPermissionAlert = false
+    @Published var showErrorAlert = false
+    @Published var errorMessage = ""
+    @Published var torchOn = false
+    @Published var torchAvailable = false
+
+    let captureSession = AVCaptureSession()
+    private var onBarcodeScanned: ((String) -> Void)?
+
+    override init() {
+        super.init()
+    }
+
+    func startScanning(onBarcodeScanned: @escaping (String) -> Void) {
+        self.onBarcodeScanned = onBarcodeScanned
+
+        checkCameraPermission { [weak self] granted in
+            if granted {
+                self?.setupCaptureSession()
+            } else {
+                DispatchQueue.main.async {
+                    self?.showPermissionAlert = true
+                }
+            }
+        }
+    }
+
+    func stopScanning() {
+        if captureSession.isRunning {
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                self?.captureSession.stopRunning()
+            }
+        }
+        torchOff()
+    }
+
+    func toggleTorch() {
+        if torchOn {
+            torchOff()
+        } else {
+            torchOnFunc()
+        }
+    }
+
+    private func torchOnFunc() {
+        guard let device = AVCaptureDevice.default(for: .video), device.hasTorch else { return }
+
+        do {
+            try device.lockForConfiguration()
+            device.torchMode = .on
+            torchOn = true
+            device.unlockForConfiguration()
+        } catch {
+            print("Torch could not be used")
+        }
+    }
+
+    private func torchOff() {
+        guard let device = AVCaptureDevice.default(for: .video), device.hasTorch else { return }
+
+        do {
+            try device.lockForConfiguration()
+            device.torchMode = .off
+            torchOn = false
+            device.unlockForConfiguration()
+        } catch {
+            print("Torch could not be turned off")
+        }
+    }
+
+    private func checkCameraPermission(completion: @escaping (Bool) -> Void) {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            completion(true)
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                completion(granted)
+            }
+        default:
+            completion(false)
+        }
+    }
+
+    private func setupCaptureSession() {
+        guard let videoCaptureDevice = AVCaptureDevice.default(for: .video) else {
+            DispatchQueue.main.async {
+                self.errorMessage = "Camera not available"
+                self.showErrorAlert = true
+            }
+            return
+        }
+
+        // Check if torch is available
+        DispatchQueue.main.async {
+            self.torchAvailable = videoCaptureDevice.hasTorch
+        }
+
+        let videoInput: AVCaptureDeviceInput
+
+        do {
+            videoInput = try AVCaptureDeviceInput(device: videoCaptureDevice)
+        } catch {
+            DispatchQueue.main.async {
+                self.errorMessage = "Could not create video input"
+                self.showErrorAlert = true
+            }
+            return
+        }
+
+        if captureSession.canAddInput(videoInput) {
+            captureSession.addInput(videoInput)
+        } else {
+            DispatchQueue.main.async {
+                self.errorMessage = "Could not add video input"
+                self.showErrorAlert = true
+            }
+            return
+        }
+
+        let metadataOutput = AVCaptureMetadataOutput()
+
+        if captureSession.canAddOutput(metadataOutput) {
+            captureSession.addOutput(metadataOutput)
+
+            metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
+            metadataOutput.metadataObjectTypes = [.ean8, .ean13, .upce, .code128, .code39]
+        } else {
+            DispatchQueue.main.async {
+                self.errorMessage = "Could not add metadata output"
+                self.showErrorAlert = true
+            }
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.captureSession.startRunning()
+            DispatchQueue.main.async {
+                self?.isScanning = true
+            }
+        }
+    }
+
+    func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
+        guard let metadataObject = metadataObjects.first,
+              let readableObject = metadataObject as? AVMetadataMachineReadableCodeObject,
+              let barcode = readableObject.stringValue else {
+            return
+        }
+
+        // Vibration feedback
+        AudioServicesPlaySystemSound(SystemSoundID(kSystemSoundID_Vibrate))
+
+        // Call the callback with the scanned barcode
+        onBarcodeScanned?(barcode)
+
+        // Stop scanning after first successful scan
+        stopScanning()
+    }
+}
+
+// Scanned food detail view
+struct ScannedFoodDetailView: View {
+    @Environment(\.dismiss) private var dismiss
+    let scannedFood: ScannedFoodData
+    let onConfirm: (FoodEntry) -> Void
+
+    @State private var servings: Double = 1.0
+    @State private var servingText: String = "1"
+    @State private var selectedMealType: MealType = .breakfast
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Product image (if available)
+                    if let imageURLString = scannedFood.imageURL,
+                       let imageURL = URL(string: imageURLString) {
+                        AsyncImage(url: imageURL) { phase in
+                            switch phase {
+                            case .empty:
+                                ProgressView()
+                                    .frame(height: 200)
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(height: 200)
+                                    .cornerRadius(12)
+                            case .failure:
+                                Image(systemName: "photo")
+                                    .font(.system(size: 60))
+                                    .foregroundColor(.gray)
+                                    .frame(height: 200)
+                            @unknown default:
+                                EmptyView()
+                            }
+                        }
+                    }
+
+                    // Product info
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(scannedFood.name)
+                            .font(.title2)
+                            .fontWeight(.bold)
+
+                        if !scannedFood.brand.isEmpty {
+                            Text(scannedFood.brand)
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Text("Barcode: \(scannedFood.barcode)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(12)
+
+                    // Meal type selection
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Meal")
+                            .font(.headline)
+
+                        Picker("Meal Type", selection: $selectedMealType) {
+                            ForEach(MealType.allCases, id: \.self) { mealType in
+                                Text(mealType.rawValue).tag(mealType)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(12)
+
+                    // Serving size selector
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Servings")
+                            .font(.headline)
+
+                        HStack {
+                            Button(action: {
+                                if servings > 0.25 {
+                                    servings -= 0.25
+                                    servingText = String(format: "%.2f", servings)
+                                }
+                            }) {
+                                Image(systemName: "minus.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(.blue)
+                            }
+
+                            TextField("Servings", text: $servingText)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.center)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .frame(width: 100)
+                                .onChange(of: servingText) { newValue in
+                                    if let value = Double(newValue), value > 0 {
+                                        servings = value
+                                    }
+                                }
+
+                            Button(action: {
+                                servings += 0.25
+                                servingText = String(format: "%.2f", servings)
+                            }) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(.blue)
+                            }
+                        }
+
+                        Text("1 serving = \(Int(scannedFood.servingSize)) \(scannedFood.servingUnit)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(12)
+
+                    // Nutrition info per serving
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Nutrition (per 100\(scannedFood.servingUnit))")
+                            .font(.headline)
+
+                        VStack(spacing: 12) {
+                            NutritionRowView(
+                                label: "Calories",
+                                value: scannedFood.calories,
+                                unit: "cal",
+                                color: .orange
+                            )
+
+                            NutritionRowView(
+                                label: "Protein",
+                                value: scannedFood.protein,
+                                unit: "g",
+                                color: .red
+                            )
+
+                            NutritionRowView(
+                                label: "Carbs",
+                                value: scannedFood.carbs,
+                                unit: "g",
+                                color: .blue
+                            )
+
+                            NutritionRowView(
+                                label: "Fat",
+                                value: scannedFood.fat,
+                                unit: "g",
+                                color: .yellow
+                            )
+                        }
+                    }
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(12)
+
+                    // Total nutrition (with servings multiplier)
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Total (\(String(format: "%.2f", servings)) servings)")
+                            .font(.headline)
+
+                        VStack(spacing: 12) {
+                            NutritionRowView(
+                                label: "Calories",
+                                value: scannedFood.calories * servings,
+                                unit: "cal",
+                                color: .orange,
+                                isBold: true
+                            )
+
+                            NutritionRowView(
+                                label: "Protein",
+                                value: scannedFood.protein * servings,
+                                unit: "g",
+                                color: .red,
+                                isBold: true
+                            )
+
+                            NutritionRowView(
+                                label: "Carbs",
+                                value: scannedFood.carbs * servings,
+                                unit: "g",
+                                color: .blue,
+                                isBold: true
+                            )
+
+                            NutritionRowView(
+                                label: "Fat",
+                                value: scannedFood.fat * servings,
+                                unit: "g",
+                                color: .yellow,
+                                isBold: true
+                            )
+                        }
+                    }
+                    .padding()
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(12)
+
+                    // Add button
+                    Button(action: {
+                        let foodEntry = scannedFood.toFoodEntry(servings: servings, mealType: selectedMealType)
+                        onConfirm(foodEntry)
+                        dismiss()
+                    }) {
+                        Text("Add to Diary")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .cornerRadius(12)
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("Scanned Food")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct NutritionRowView: View {
+    let label: String
+    let value: Double
+    let unit: String
+    let color: Color
+    var isBold: Bool = false
+
+    var body: some View {
+        HStack {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 12, height: 12)
+
+                Text(label)
+                    .font(isBold ? .body : .subheadline)
+                    .fontWeight(isBold ? .semibold : .regular)
+            }
+
+            Spacer()
+
+            Text("\(Int(value)) \(unit)")
+                .font(isBold ? .body : .subheadline)
+                .fontWeight(isBold ? .bold : .regular)
+                .foregroundColor(color)
+        }
+    }
+}
+
 #Preview {
     FoodSelectionView { entry in
         print("Added food: \(entry.name)")

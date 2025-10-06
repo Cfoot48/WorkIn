@@ -177,11 +177,22 @@ struct VolumeChartView: View {
 struct ExerciseProgressRowView: View {
     let exerciseName: String
     let workouts: [Workout]
+    @ObservedObject var workoutStore: WorkoutStore
+    @State private var showingResetAlert = false
+    @State private var reset1RMTimestamp: Date?
 
     var body: some View {
         let progressData = getExerciseProgressData()
-        let latestData = progressData.last
-        let previousData = progressData.dropLast().last
+        // Filter out data before the reset timestamp
+        let filteredData = progressData.filter { dataPoint in
+            if let resetTime = reset1RMTimestamp {
+                return dataPoint.date > resetTime
+            }
+            return true
+        }
+        let allTimeMax1RM = filteredData.map { $0.max1RM }.max() ?? 0
+        let latestData = filteredData.last
+        let previousData = filteredData.dropLast().last
 
         HStack {
             VStack(alignment: .leading, spacing: 4) {
@@ -190,12 +201,12 @@ struct ExerciseProgressRowView: View {
                     .fontWeight(.semibold)
 
                 HStack(spacing: 16) {
-                    // Max weight
+                    // 1RM (all-time max)
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.up")
                             .font(.caption)
                             .foregroundColor(.green)
-                        Text("Max: \(Int(latestData?.maxWeight ?? 0)) lbs")
+                        Text("1RM: \(Int(allTimeMax1RM)) lbs")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -217,24 +228,23 @@ struct ExerciseProgressRowView: View {
             // Progress indicator
             VStack(alignment: .trailing, spacing: 2) {
                 if let latest = latestData, let previous = previousData {
-                    let weightChange = latest.maxWeight - previous.maxWeight
-                    let volumeChange = latest.totalVolume - previous.totalVolume
+                    let oneRMChange = latest.max1RM - previous.max1RM
 
-                    if weightChange > 0 {
+                    if oneRMChange > 0 {
                         HStack(spacing: 2) {
                             Image(systemName: "arrow.up.right")
                                 .font(.caption2)
                                 .foregroundColor(.green)
-                            Text("+\(Int(weightChange)) lbs")
+                            Text("+\(Int(oneRMChange)) lbs")
                                 .font(.caption2)
                                 .foregroundColor(.green)
                         }
-                    } else if weightChange < 0 {
+                    } else if oneRMChange < 0 {
                         HStack(spacing: 2) {
                             Image(systemName: "arrow.down.right")
                                 .font(.caption2)
                                 .foregroundColor(.red)
-                            Text("\(Int(weightChange)) lbs")
+                            Text("\(Int(oneRMChange)) lbs")
                                 .font(.caption2)
                                 .foregroundColor(.red)
                         }
@@ -258,6 +268,38 @@ struct ExerciseProgressRowView: View {
         .padding()
         .background(Color.gray.opacity(0.05))
         .cornerRadius(8)
+        .onLongPressGesture(minimumDuration: 0.5) {
+            showingResetAlert = true
+        }
+        .alert("Reset 1RM Progress", isPresented: $showingResetAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Reset", role: .destructive) {
+                reset1RMProgress()
+            }
+        } message: {
+            Text("This will reset the 1RM tracking for '\(exerciseName)'. Your workout history will remain intact, but the 1RM will start fresh from now.")
+        }
+        .onAppear {
+            loadReset1RMTimestamp()
+        }
+    }
+
+    private func reset1RMProgress() {
+        print("🔄 Resetting 1RM progress for exercise: \(exerciseName)")
+
+        // Set the reset timestamp to now
+        reset1RMTimestamp = Date()
+
+        // Save to UserDefaults
+        let key = "reset1RM_\(exerciseName)"
+        UserDefaults.standard.set(reset1RMTimestamp, forKey: key)
+
+        print("✅ Successfully reset 1RM progress for \(exerciseName)")
+    }
+
+    private func loadReset1RMTimestamp() {
+        let key = "reset1RM_\(exerciseName)"
+        reset1RMTimestamp = UserDefaults.standard.object(forKey: key) as? Date
     }
 
     private func getExerciseProgressData() -> [ExerciseDataPoint] {
@@ -271,12 +313,24 @@ struct ExerciseProgressRowView: View {
         return exerciseWorkouts.compactMap { date, exercise in
             guard !exercise.sets.isEmpty else { return nil }
 
-            let maxWeight = exercise.sets.map { $0.weight }.max() ?? 0
+            // Calculate 1RM using Brzycki formula for each set and find the max
+            let oneRepMaxes = exercise.sets.compactMap { set -> Double? in
+                guard set.reps > 0 && set.weight > 0 else { return nil }
+
+                if set.reps == 1 {
+                    return set.weight
+                } else {
+                    // Brzycki formula: 1RM = weight * (36 / (37 - reps))
+                    return set.weight * (36.0 / (37.0 - Double(set.reps)))
+                }
+            }
+
+            let max1RM = oneRepMaxes.max() ?? 0
             let totalVolume = exercise.sets.reduce(0) { $0 + (Double($1.reps) * $1.weight) }
 
             return ExerciseDataPoint(
                 date: date,
-                maxWeight: maxWeight,
+                max1RM: max1RM,
                 totalVolume: totalVolume
             )
         }
@@ -285,7 +339,7 @@ struct ExerciseProgressRowView: View {
 
 struct ExerciseDataPoint {
     let date: Date
-    let maxWeight: Double
+    let max1RM: Double
     let totalVolume: Double
 }
 
@@ -424,7 +478,7 @@ struct CaloriesChartView: View {
             .frame(height: 200)
             .padding()
 
-        ExerciseProgressRowView(exerciseName: "Bench Press", workouts: [])
+        ExerciseProgressRowView(exerciseName: "Bench Press", workouts: [], workoutStore: WorkoutStore())
             .padding()
     }
 }

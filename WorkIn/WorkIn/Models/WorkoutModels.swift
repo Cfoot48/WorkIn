@@ -6,13 +6,15 @@ struct Workout: Identifiable, Codable, Equatable {
     var exercises: [Exercise]
     var date: Date
     var duration: TimeInterval
+    var bodyWeight: Double? // Bodyweight at time of workout
 
-    init(name: String, exercises: [Exercise] = [], date: Date = Date(), duration: TimeInterval = 0) {
+    init(name: String, exercises: [Exercise] = [], date: Date = Date(), duration: TimeInterval = 0, bodyWeight: Double? = nil) {
         self.id = UUID()
         self.name = name
         self.exercises = exercises
         self.date = date
         self.duration = duration
+        self.bodyWeight = bodyWeight
     }
 }
 
@@ -384,6 +386,10 @@ struct StrengthStandards {
                 normalizedName.contains("barbell row") || normalizedName.contains("t-bar row") {
             return getRowRank(ratio: ratio)
         }
+        // Push-ups (bodyweight exercise - ratio based on reps/1RM)
+        else if normalizedName.contains("push up") || normalizedName.contains("push-up") || normalizedName.contains("pushup") {
+            return getPushUpRank(ratio: ratio)
+        }
         // Pull-ups and chin-ups (bodyweight + added weight)
         else if normalizedName.contains("pull up") || normalizedName.contains("pull-up") ||
                 normalizedName.contains("chin up") || normalizedName.contains("chin-up") {
@@ -462,27 +468,43 @@ struct StrengthStandards {
         return .bronze
     }
 
+    private static func getPushUpRank(ratio: Double) -> StrengthRank {
+        // For push-ups: The Brzycki formula breaks down at high reps (goes to infinity)
+        // Push-ups are VERY EASY - extremely harsh standards
+        // Rep examples: 12=1.44, 20=1.8, 25=3.0, 30=5.14, 36=18.3, 40=19.5, 60=25.5, 100=37.5
+        if ratio >= 35.0 { return .superman }     // 100+ reps (superhuman)
+        if ratio >= 28.0 { return .hulk }         // 75+ reps (elite athlete)
+        if ratio >= 23.0 { return .arnold }       // 55+ reps (very strong)
+        if ratio >= 19.0 { return .diamond }      // 40+ reps (strong)
+        if ratio >= 10.0 { return .platinum }     // 35+ reps (above average)
+        if ratio >= 4.0 { return .gold }          // 30+ reps (average)
+        if ratio >= 2.0 { return .silver }        // 22+ reps (below average)
+        return .bronze                             // < 22 reps (beginner)
+    }
+
     private static func getPullUpRank(ratio: Double) -> StrengthRank {
         // For pull-ups, ratio is (bodyweight + added weight) / bodyweight
-        if ratio >= 1.8 { return .superman }
-        if ratio >= 1.6 { return .hulk }
-        if ratio >= 1.4 { return .arnold }
-        if ratio >= 1.2 { return .diamond }
-        if ratio >= 1.0 { return .platinum }
-        if ratio >= 0.8 { return .gold }
-        if ratio >= 0.6 { return .silver }
+        // Much stricter standards
+        if ratio >= 2.0 { return .superman }
+        if ratio >= 1.8 { return .hulk }
+        if ratio >= 1.6 { return .arnold }
+        if ratio >= 1.4 { return .diamond }
+        if ratio >= 1.2 { return .platinum }
+        if ratio >= 1.0 { return .gold }
+        if ratio >= 0.8 { return .silver }
         return .bronze
     }
 
     private static func getDipRank(ratio: Double) -> StrengthRank {
         // For dips, ratio is (bodyweight + added weight) / bodyweight
-        if ratio >= 1.9 { return .superman }
-        if ratio >= 1.7 { return .hulk }
-        if ratio >= 1.5 { return .arnold }
-        if ratio >= 1.3 { return .diamond }
-        if ratio >= 1.1 { return .platinum }
-        if ratio >= 0.9 { return .gold }
-        if ratio >= 0.7 { return .silver }
+        // Stricter standards - dips are challenging but achievable
+        if ratio >= 2.2 { return .superman }
+        if ratio >= 2.0 { return .hulk }
+        if ratio >= 1.7 { return .arnold }
+        if ratio >= 1.5 { return .diamond }
+        if ratio >= 1.3 { return .platinum }
+        if ratio >= 1.1 { return .gold }
+        if ratio >= 0.9 { return .silver }
         return .bronze
     }
 
@@ -534,9 +556,12 @@ struct PersonalRecord {
 
 extension Workout {
     func getHighestRank(bodyWeight: Double = 181) -> StrengthRank? {
+        // Use stored bodyweight from the workout if available
+        // If not stored, use a default of 181 lbs for old workouts (don't use current weight)
+        let effectiveBodyWeight = self.bodyWeight ?? 181.0
         var highestRank: StrengthRank?
 
-        print("🏋️ Calculating rank for workout '\(name)' with \(exercises.count) exercises (bodyweight: \(bodyWeight) lbs)")
+        print("🏋️ Calculating rank for workout '\(name)' with \(exercises.count) exercises (bodyweight: \(effectiveBodyWeight) lbs\(self.bodyWeight != nil ? " [stored]" : " [default]"))")
 
         for exercise in exercises {
             // Check if exercise has valid sets with weight and reps
@@ -549,8 +574,16 @@ extension Workout {
             // Calculate one-rep max for each valid set and find the highest
             let oneRepMaxes = validSets.compactMap { set -> Double? in
                 // Brzycki formula: 1RM = weight * (36 / (37 - reps))
+                // Cap at 36 reps to avoid negative/infinite values
                 if set.reps == 1 {
                     return set.weight
+                } else if set.reps >= 36 {
+                    // For very high reps, use a multiplier approach
+                    // At 36 reps, Brzycki would be infinite. Use a linear extension instead.
+                    // 35 reps = ratio ~18, so continue from there
+                    let baseRatio = 18.0  // Approximate ratio at 35 reps
+                    let extraReps = Double(set.reps) - 35.0
+                    return set.weight * (baseRatio + extraReps * 0.3)  // Add 0.3x per rep beyond 35
                 } else {
                     return set.weight * (36.0 / (37.0 - Double(set.reps)))
                 }
@@ -561,11 +594,11 @@ extension Workout {
                 continue
             }
 
-            let ratio = maxOneRepMax / bodyWeight
+            let ratio = maxOneRepMax / effectiveBodyWeight
             let rank = StrengthStandards.getRank(
                 exerciseName: exercise.name,
                 weight: maxOneRepMax,
-                bodyWeight: bodyWeight
+                bodyWeight: effectiveBodyWeight
             )
 
             print("🏋️ Exercise '\(exercise.name)': 1RM \(String(format: "%.1f", maxOneRepMax)) lbs, ratio \(String(format: "%.2f", ratio)), rank: \(rank.rawValue) \(rank.symbol)")

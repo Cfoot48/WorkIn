@@ -3,7 +3,8 @@ import SwiftUI
 struct ProfileView: View {
     @EnvironmentObject var authManager: AuthenticationManager
     @EnvironmentObject var themeManager: ThemeManager
-    @StateObject private var profileStore = UserProfileStore()
+    @EnvironmentObject var profileStore: UserProfileStore
+    @EnvironmentObject var nutritionStore: NutritionStore
     @State private var showingSettings = false
     @State private var showingGoals = false
 
@@ -35,7 +36,7 @@ struct ProfileView: View {
                     SettingsView()
                 }
                 .sheet(isPresented: $showingGoals) {
-                    GoalsView(profileStore: profileStore)
+                    GoalsView(profileStore: profileStore, nutritionStore: nutritionStore)
                 }
             }
         }
@@ -270,6 +271,7 @@ struct SettingsView: View {
 struct GoalsView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var profileStore: UserProfileStore
+    @ObservedObject var nutritionStore: NutritionStore
 
     @State private var currentWeight: String
     @State private var goalWeight: String
@@ -278,8 +280,9 @@ struct GoalsView: View {
     @State private var dailyProtein: String
     @State private var weeklyWorkouts: String
 
-    init(profileStore: UserProfileStore) {
+    init(profileStore: UserProfileStore, nutritionStore: NutritionStore) {
         self.profileStore = profileStore
+        self.nutritionStore = nutritionStore
         _currentWeight = State(initialValue: String(Int(profileStore.profile.currentWeight)))
         _goalWeight = State(initialValue: String(Int(profileStore.profile.goalWeight)))
         _height = State(initialValue: String(Int(profileStore.profile.height)))
@@ -415,6 +418,9 @@ struct GoalsView: View {
         if let workouts = Int(weeklyWorkouts) {
             profileStore.profile.weeklyWorkoutGoal = workouts
         }
+
+        // Sync nutrition goals with NutritionStore
+        nutritionStore.syncNutritionGoalsFromProfile()
     }
 }
 

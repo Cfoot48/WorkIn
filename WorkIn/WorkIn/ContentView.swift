@@ -42,6 +42,8 @@ struct ContentView: View {
             ProfileView()
                 .environmentObject(themeManager)
                 .environmentObject(authManager)
+                .environmentObject(nutritionStore)
+                .environmentObject(profileStore)
                 .tabItem {
                     Image(systemName: "person.fill")
                     Text("Profile")

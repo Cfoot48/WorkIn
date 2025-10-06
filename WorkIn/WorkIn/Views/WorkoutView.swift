@@ -383,6 +383,7 @@ struct ActiveWorkoutView: View {
         var finalWorkout = workout
         finalWorkout.date = Date()
         finalWorkout.duration = elapsedTime
+        finalWorkout.bodyWeight = bodyWeight // Store bodyweight at time of workout
 
         print("🎉 Current workout found: \(finalWorkout.name)")
         print("🎉 DEBUG: Final workout has \(finalWorkout.exercises.count) exercises")
@@ -398,7 +399,7 @@ struct ActiveWorkoutView: View {
         let detectedPRs = finalWorkout.detectPersonalRecords(comparedTo: previousWorkouts)
         let detectedRank = finalWorkout.getHighestRank(bodyWeight: bodyWeight)
 
-        print("🎉 Workout completed with \(detectedPRs.count) PRs and rank: \(detectedRank?.rawValue ?? "None") (bodyweight: \(bodyWeight) lbs)")
+        print("🎉 Workout completed with \(detectedPRs.count) PRs and rank: \(detectedRank?.rawValue ?? "None") (bodyweight: \(bodyWeight) lbs [STORED])")
 
         // Create completion object with all data bundled together
         let completion = WorkoutCompletion(

@@ -101,7 +101,22 @@ class NutritionStore: ObservableObject {
     init() {
         print("🔥 NutritionStore: Initializing...")
         loadSampleFoods()
+        // Load initial goals from UserDefaults
+        loadNutritionGoalsFromUserDefaults()
         // Don't set up Firebase listeners immediately - wait for authentication
+    }
+
+    func loadNutritionGoalsFromUserDefaults() {
+        if let data = UserDefaults.standard.data(forKey: "userProfile"),
+           let profile = try? JSONDecoder().decode(UserProfile.self, from: data) {
+            nutritionGoals.dailyCalories = Double(profile.dailyCalories)
+            nutritionGoals.dailyProtein = Double(profile.dailyProtein)
+            print("🔥 NutritionStore: Loaded goals from UserDefaults - Calories: \(nutritionGoals.dailyCalories), Protein: \(nutritionGoals.dailyProtein)")
+        }
+    }
+
+    func syncNutritionGoalsFromProfile() {
+        loadNutritionGoalsFromUserDefaults()
     }
 
     // MARK: - Firebase Integration
@@ -225,5 +240,250 @@ class NutritionStore: ObservableObject {
 
     deinit {
         firestoreManager.removeAllListeners()
+    }
+}
+
+// MARK: - Barcode Nutrition Service
+
+// Service to fetch nutrition data from barcode
+class BarcodeNutritionService {
+
+    static let shared = BarcodeNutritionService()
+
+    private init() {}
+
+    // Fetch nutrition data from Open Food Facts API
+    func fetchNutritionData(barcode: String) async throws -> ScannedFoodData {
+        let urlString = "https://world.openfoodfacts.org/api/v2/product/\(barcode).json"
+
+        print("🌐 Fetching nutrition data for barcode: \(barcode)")
+        print("🌐 URL: \(urlString)")
+
+        guard let url = URL(string: urlString) else {
+            print("❌ Invalid URL")
+            throw BarcodeError.invalidURL
+        }
+
+        let (data, response) = try await URLSession.shared.data(from: url)
+
+        print("📥 Received response")
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ Not an HTTP response")
+            throw BarcodeError.serverError
+        }
+
+        print("📊 HTTP Status: \(httpResponse.statusCode)")
+
+        guard httpResponse.statusCode == 200 else {
+            print("❌ Server error: \(httpResponse.statusCode)")
+            throw BarcodeError.serverError
+        }
+
+        let decoder = JSONDecoder()
+
+        do {
+            let productResponse = try decoder.decode(OpenFoodFactsResponse.self, from: data)
+            print("✅ Successfully decoded response, status: \(productResponse.status)")
+
+            guard productResponse.status == 1,
+                  let product = productResponse.product else {
+                print("❌ Product not found or status != 1")
+                throw BarcodeError.productNotFound
+            }
+
+            print("✅ Product found: \(product.productName ?? "Unknown")")
+
+            // Get nutrition data with fallbacks
+            let nutriments = product.nutriments
+            let calories = nutriments?.bestCalories ?? nutriments?.energyKcal100g ?? 0
+            let protein = nutriments?.bestProtein ?? nutriments?.proteins100g ?? 0
+            let carbs = nutriments?.bestCarbs ?? nutriments?.carbohydrates100g ?? 0
+            let fat = nutriments?.fat100g ?? 0
+
+            print("📊 Nutrition data - Cal: \(calories), P: \(protein), C: \(carbs), F: \(fat)")
+
+            // Choose best available image
+            let imageURL = product.imageFrontUrl ?? product.imageFrontSmallUrl ?? product.imageUrl
+
+            // If no nutrition data at all, still allow the product but warn
+            if calories == 0 && protein == 0 && carbs == 0 && fat == 0 {
+                print("⚠️ Warning: No nutrition data available for this product")
+            }
+
+            return ScannedFoodData(
+                barcode: barcode,
+                name: product.productName ?? "Unknown Product",
+                brand: product.brands ?? "",
+                calories: calories,
+                protein: protein,
+                carbs: carbs,
+                fat: fat,
+                servingSize: product.servingQuantity ?? 100,
+                servingUnit: product.servingQuantityUnit ?? "g",
+                imageURL: imageURL
+            )
+        } catch let decodingError as DecodingError {
+            print("❌ Decoding error: \(decodingError)")
+
+            // Print detailed error info
+            switch decodingError {
+            case .keyNotFound(let key, let context):
+                print("❌ Missing key: \(key.stringValue) - \(context.debugDescription)")
+                print("❌ Coding path: \(context.codingPath)")
+            case .typeMismatch(let type, let context):
+                print("❌ Type mismatch for type: \(type) - \(context.debugDescription)")
+                print("❌ Coding path: \(context.codingPath)")
+            case .valueNotFound(let type, let context):
+                print("❌ Value not found for type: \(type) - \(context.debugDescription)")
+                print("❌ Coding path: \(context.codingPath)")
+            case .dataCorrupted(let context):
+                print("❌ Data corrupted: \(context.debugDescription)")
+                print("❌ Coding path: \(context.codingPath)")
+            @unknown default:
+                print("❌ Unknown decoding error")
+            }
+
+            // Print the raw JSON for debugging
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("📄 Raw JSON (first 1000 chars): \(jsonString.prefix(1000))")
+            }
+            throw BarcodeError.decodingError
+        }
+    }
+}
+
+// Scanned food data model
+struct ScannedFoodData {
+    let barcode: String
+    let name: String
+    let brand: String
+    let calories: Double
+    let protein: Double
+    let carbs: Double
+    let fat: Double
+    let servingSize: Double
+    let servingUnit: String
+    let imageURL: String?
+
+    // Convert to FoodEntry
+    func toFoodEntry(servings: Double = 1, mealType: MealType = .breakfast) -> FoodEntry {
+        let multiplier = servings
+        return FoodEntry(
+            name: brand.isEmpty ? name : "\(brand) - \(name)",
+            calories: calories * multiplier,
+            protein: protein * multiplier,
+            carbs: carbs * multiplier,
+            fat: fat * multiplier,
+            mealType: mealType
+        )
+    }
+}
+
+// Error types
+enum BarcodeError: LocalizedError {
+    case invalidURL
+    case serverError
+    case productNotFound
+    case decodingError
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL:
+            return "Invalid barcode format"
+        case .serverError:
+            return "Server error - please try again"
+        case .productNotFound:
+            return "Product not found in database. Try searching manually or scanning a different barcode."
+        case .decodingError:
+            return "Could not read product data"
+        }
+    }
+}
+
+// Open Food Facts API response models
+struct OpenFoodFactsResponse: Codable {
+    let status: Int
+    let product: OpenFoodProduct?
+}
+
+struct OpenFoodProduct: Codable {
+    let productName: String?
+    let brands: String?
+    let nutriments: Nutriments?
+    let servingQuantity: Double?
+    let servingQuantityUnit: String?
+    let imageFrontUrl: String?
+    let imageFrontSmallUrl: String?
+    let imageUrl: String?
+
+    enum CodingKeys: String, CodingKey {
+        case productName = "product_name"
+        case brands
+        case nutriments
+        case servingQuantity = "serving_quantity"
+        case servingQuantityUnit = "serving_quantity_unit"
+        case imageFrontUrl = "image_front_url"
+        case imageFrontSmallUrl = "image_front_small_url"
+        case imageUrl = "image_url"
+    }
+
+    // Custom decoder to handle serving_quantity as either String or Double
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        productName = try container.decodeIfPresent(String.self, forKey: .productName)
+        brands = try container.decodeIfPresent(String.self, forKey: .brands)
+        nutriments = try container.decodeIfPresent(Nutriments.self, forKey: .nutriments)
+        servingQuantityUnit = try container.decodeIfPresent(String.self, forKey: .servingQuantityUnit)
+        imageFrontUrl = try container.decodeIfPresent(String.self, forKey: .imageFrontUrl)
+        imageFrontSmallUrl = try container.decodeIfPresent(String.self, forKey: .imageFrontSmallUrl)
+        imageUrl = try container.decodeIfPresent(String.self, forKey: .imageUrl)
+
+        // Handle servingQuantity as either String or Double
+        if let quantityString = try? container.decode(String.self, forKey: .servingQuantity) {
+            servingQuantity = Double(quantityString)
+        } else if let quantityDouble = try? container.decode(Double.self, forKey: .servingQuantity) {
+            servingQuantity = quantityDouble
+        } else {
+            servingQuantity = nil
+        }
+    }
+}
+
+struct Nutriments: Codable {
+    let energyKcal100g: Double?
+    let proteins100g: Double?
+    let carbohydrates100g: Double?
+    let fat100g: Double?
+
+    // Alternative field names that might be used
+    let energy100g: Double?
+    let protein100g: Double?
+    let carbs100g: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case energyKcal100g = "energy-kcal_100g"
+        case proteins100g = "proteins_100g"
+        case carbohydrates100g = "carbohydrates_100g"
+        case fat100g = "fat_100g"
+        case energy100g = "energy_100g"
+        case protein100g = "protein_100g"
+        case carbs100g = "carbs_100g"
+    }
+
+    // Helper to get the best available calorie value
+    var bestCalories: Double? {
+        energyKcal100g ?? (energy100g != nil ? energy100g! / 4.184 : nil)
+    }
+
+    // Helper to get the best available protein value
+    var bestProtein: Double? {
+        proteins100g ?? protein100g
+    }
+
+    // Helper to get the best available carbs value
+    var bestCarbs: Double? {
+        carbohydrates100g ?? carbs100g
     }
 }

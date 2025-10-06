@@ -19,7 +19,7 @@ class FirestoreManager: ObservableObject {
             throw FirestoreError.userNotAuthenticated
         }
 
-        let workoutData: [String: Any] = [
+        var workoutData: [String: Any] = [
             "id": workout.id.uuidString,
             "name": workout.name,
             "date": workout.date,
@@ -44,6 +44,11 @@ class FirestoreManager: ObservableObject {
             "createdAt": FieldValue.serverTimestamp(),
             "updatedAt": FieldValue.serverTimestamp()
         ]
+
+        // Add bodyweight if available
+        if let bodyWeight = workout.bodyWeight {
+            workoutData["bodyWeight"] = bodyWeight
+        }
 
         try await db.collection("users")
             .document(userID)
@@ -233,11 +238,15 @@ class FirestoreManager: ObservableObject {
             try parseExercise(from: exerciseData)
         }
 
+        // Bodyweight is optional for backwards compatibility
+        let bodyWeight = data["bodyWeight"] as? Double
+
         return Workout(
             name: name,
             exercises: exercises,
             date: date,
-            duration: duration
+            duration: duration,
+            bodyWeight: bodyWeight
         )
     }
 
