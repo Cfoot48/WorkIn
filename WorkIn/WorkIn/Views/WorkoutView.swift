@@ -3,7 +3,9 @@ import SwiftUI
 struct WorkoutView: View {
     @EnvironmentObject var workoutStore: WorkoutStore
     @EnvironmentObject var profileStore: UserProfileStore
+    @EnvironmentObject var templateStore: TemplateStore
     @State private var showingExerciseSelection = false
+    @State private var showingAIWorkoutGenerator = false
 
     var body: some View {
         NavigationView {
@@ -21,6 +23,13 @@ struct WorkoutView: View {
             }
             .navigationTitle("Workouts")
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: { showingAIWorkoutGenerator = true }) {
+                        Image(systemName: "sparkles")
+                            .foregroundColor(.purple)
+                    }
+                }
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("New Workout") {
                         startQuickWorkout()
@@ -32,6 +41,12 @@ struct WorkoutView: View {
                     workoutStore: workoutStore,
                     isPresented: $showingExerciseSelection
                 )
+            }
+            .sheet(isPresented: $showingAIWorkoutGenerator) {
+                AIWorkoutGeneratorView()
+                    .environmentObject(templateStore)
+                    .environmentObject(profileStore)
+                    .environmentObject(workoutStore)
             }
         }
     }

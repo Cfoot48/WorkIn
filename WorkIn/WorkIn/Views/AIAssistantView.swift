@@ -581,6 +581,10 @@ struct MealGeneratorView: View {
     }
 }
 
+// Type aliases for easier referencing
+typealias AIWorkoutGeneratorView = WorkoutGeneratorView
+typealias AIMealGeneratorView = MealGeneratorView
+
 #Preview {
     AIAssistantView()
         .environmentObject(UserProfileStore())

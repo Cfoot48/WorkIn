@@ -16,6 +16,13 @@ class AIAssistantService {
 
     func setAPIKey(_ key: String) {
         apiKey = key
+        UserDefaults.standard.set(key, forKey: "openai_api_key")
+    }
+
+    func reloadAPIKey() {
+        if let savedKey = UserDefaults.standard.string(forKey: "openai_api_key") {
+            apiKey = savedKey
+        }
     }
 
     // MARK: - Generate Workout Plan

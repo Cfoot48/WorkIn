@@ -2,6 +2,8 @@ import SwiftUI
 
 struct NutritionView: View {
     @EnvironmentObject var nutritionStore: NutritionStore
+    @EnvironmentObject var templateStore: TemplateStore
+    @EnvironmentObject var profileStore: UserProfileStore
     @State private var showingAddFood = false
     @State private var showingBarcodeScanner = false
     @State private var showingScannedFood = false
@@ -9,6 +11,7 @@ struct NutritionView: View {
     @State private var isLoadingBarcode = false
     @State private var barcodeError: String?
     @State private var showBarcodeError = false
+    @State private var showingAIMealGenerator = false
 
     var body: some View {
         NavigationView {
@@ -22,7 +25,12 @@ struct NutritionView: View {
             }
             .navigationTitle("Nutrition")
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItemGroup(placement: .navigationBarLeading) {
+                    Button(action: { showingAIMealGenerator = true }) {
+                        Image(systemName: "sparkles")
+                            .foregroundColor(.purple)
+                    }
+
                     Button(action: { showingBarcodeScanner = true }) {
                         Image(systemName: "barcode.viewfinder")
                     }
@@ -50,6 +58,12 @@ struct NutritionView: View {
                         nutritionStore.addFoodEntry(foodEntry)
                     }
                 }
+            }
+            .sheet(isPresented: $showingAIMealGenerator) {
+                AIMealGeneratorView()
+                    .environmentObject(templateStore)
+                    .environmentObject(profileStore)
+                    .environmentObject(nutritionStore)
             }
             .alert("Barcode Error", isPresented: $showBarcodeError) {
                 Button("OK", role: .cancel) { }

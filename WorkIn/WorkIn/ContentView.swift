@@ -16,6 +16,7 @@ struct ContentView: View {
                 .environmentObject(workoutStore)
                 .environmentObject(themeManager)
                 .environmentObject(profileStore)
+                .environmentObject(templateStore)
                 .tabItem {
                     Image(systemName: "dumbbell.fill")
                     Text("Workouts")
@@ -25,6 +26,8 @@ struct ContentView: View {
             NutritionView()
                 .environmentObject(nutritionStore)
                 .environmentObject(themeManager)
+                .environmentObject(templateStore)
+                .environmentObject(profileStore)
                 .tabItem {
                     Image(systemName: "fork.knife")
                     Text("Nutrition")
@@ -53,18 +56,6 @@ struct ContentView: View {
                 }
                 .tag(3)
 
-            AIAssistantView()
-                .environmentObject(profileStore)
-                .environmentObject(workoutStore)
-                .environmentObject(nutritionStore)
-                .environmentObject(templateStore)
-                .environmentObject(themeManager)
-                .tabItem {
-                    Image(systemName: "sparkles")
-                    Text("AI")
-                }
-                .tag(4)
-
             ProfileView()
                 .environmentObject(themeManager)
                 .environmentObject(authManager)
@@ -74,7 +65,7 @@ struct ContentView: View {
                     Image(systemName: "person.fill")
                     Text("Profile")
                 }
-                .tag(5)
+                .tag(4)
         }
         .accentColor(themeManager.accentColor)
         .background(themeManager.backgroundColor)

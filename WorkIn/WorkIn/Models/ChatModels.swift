@@ -99,34 +99,32 @@ class ChatManager: ObservableObject {
         // Check for profanity and inappropriate content
         let lowercaseMessage = message.lowercased()
 
-        // Basic profanity filter - only match whole words
-        let bannedWords = [
-            "fuck", "fucking", "fucker", "fck",
-            "shit", "shitting", "shitty",
-            "bitch", "bitches",
-            "asshole", "assholes",
-            "damn", "dammit",
-            "dick", "dicks",
-            "cock", "cocks",
-            "pussy", "pussies",
-            "cunt", "cunts",
-            "whore", "whores",
-            "slut", "sluts",
-            "fag", "faggot", "fags",
-            "nigger", "nigga", "niggers",
-            "retard", "retarded", "retards",
-            "rape", "raping", "rapist",
-            "nazi", "nazis",
-            "kill yourself", "kys",
-            "suicide", "kill", "murder"
+        // Comprehensive profanity filter - checks for substrings to catch variations
+        let bannedSubstrings = [
+            "fuck", "fck", "f*ck", "fuk",
+            "shit", "sh1t", "shyt",
+            "bitch", "b1tch", "biatch",
+            "ass", "a$$", "azz",
+            "damn", "dam",
+            "dick", "d1ck",
+            "cock", "c0ck",
+            "pussy", "puss",
+            "cunt", "c*nt",
+            "whore", "wh0re",
+            "slut", "sl*t",
+            "fag", "f@g",
+            "nigger", "nigga", "n1gga", "n1gger",
+            "retard", "retrd",
+            "rape", "r@pe",
+            "nazi", "naz1",
+            "kys",
+            "suicide",
+            "kill yourself"
         ]
 
-        // Split message into words (handles punctuation)
-        let words = lowercaseMessage.components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .filter { !$0.isEmpty }
-
-        for word in words {
-            if bannedWords.contains(word) {
+        // Check for banned substrings anywhere in the message
+        for banned in bannedSubstrings {
+            if lowercaseMessage.contains(banned) {
                 return ModerationResult(isAllowed: false, reason: "Inappropriate language detected")
             }
         }
