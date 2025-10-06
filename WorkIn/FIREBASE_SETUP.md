@@ -59,16 +59,10 @@ service cloud.firestore {
       }
     }
 
-    // Global chat - anyone authenticated can read, only send valid messages
+    // Global chat - anyone authenticated can read and send messages
     match /globalChat/{messageId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn()
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.message is string
-        && request.resource.data.message.size() > 0
-        && request.resource.data.message.size() <= 500
-        && request.resource.data.username is string
-        && request.resource.data.timestamp != null;
+      allow create: if isSignedIn(); // Any authenticated user can send messages
       allow update, delete: if false; // Messages cannot be edited or deleted
     }
   }
