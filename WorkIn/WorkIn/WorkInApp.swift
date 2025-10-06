@@ -33,6 +33,9 @@ struct WorkInApp: App {
     @StateObject private var authManager = AuthenticationManager()
     @StateObject private var workoutStore = WorkoutStore()
     @StateObject private var nutritionStore = NutritionStore()
+    @StateObject private var profileStore = UserProfileStore()
+    @StateObject private var chatManager = ChatManager()
+    @StateObject private var templateStore = TemplateStore()
 
     var body: some Scene {
         WindowGroup {
@@ -41,6 +44,9 @@ struct WorkInApp: App {
                 .environmentObject(authManager)
                 .environmentObject(workoutStore)
                 .environmentObject(nutritionStore)
+                .environmentObject(profileStore)
+                .environmentObject(chatManager)
+                .environmentObject(templateStore)
                 .preferredColorScheme(themeManager.colorScheme)
         }
     }

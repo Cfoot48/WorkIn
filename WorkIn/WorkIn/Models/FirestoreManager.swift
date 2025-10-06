@@ -190,7 +190,7 @@ class FirestoreManager: ObservableObject {
             throw FirestoreError.userNotAuthenticated
         }
 
-        let profileData: [String: Any] = [
+        var profileData: [String: Any] = [
             "displayName": profile.displayName,
             "email": profile.email,
             "height": profile.height,
@@ -202,6 +202,10 @@ class FirestoreManager: ObservableObject {
             "weeklyWorkoutGoal": profile.weeklyWorkoutGoal,
             "updatedAt": FieldValue.serverTimestamp()
         ]
+
+        if let rank = profile.highestRankAchieved {
+            profileData["highestRankAchieved"] = rank.rawValue
+        }
 
         try await db.collection("users")
             .document(userID)
@@ -332,6 +336,9 @@ class FirestoreManager: ObservableObject {
             throw FirestoreError.invalidData
         }
 
+        let rankString = data["highestRankAchieved"] as? String
+        let rank = rankString != nil ? StrengthRank(rawValue: rankString!) : nil
+
         return UserProfile(
             displayName: displayName,
             email: email,
@@ -340,7 +347,8 @@ class FirestoreManager: ObservableObject {
             height: data["height"] as? Double ?? 72,
             dailyCalories: Int(data["dailyCalorieGoal"] as? Double ?? data["dailyCalories"] as? Double ?? 2000),
             dailyProtein: Int(data["dailyProteinGoal"] as? Double ?? data["dailyProtein"] as? Double ?? 150),
-            weeklyWorkoutGoal: data["weeklyWorkoutGoal"] as? Int ?? 4
+            weeklyWorkoutGoal: data["weeklyWorkoutGoal"] as? Int ?? 4,
+            highestRankAchieved: rank
         )
     }
 }
@@ -387,6 +395,7 @@ struct UserProfile: Codable {
     var dailyCalories: Int
     var dailyProtein: Int
     var weeklyWorkoutGoal: Int
+    var highestRankAchieved: StrengthRank?
 
     var goalType: GoalType {
         if goalWeight < currentWeight {
@@ -432,7 +441,8 @@ struct UserProfile: Codable {
          height: Double = 72, // 6'0"
          dailyCalories: Int = 2000,
          dailyProtein: Int = 150,
-         weeklyWorkoutGoal: Int = 4) {
+         weeklyWorkoutGoal: Int = 4,
+         highestRankAchieved: StrengthRank? = nil) {
         self.displayName = displayName
         self.email = email
         self.currentWeight = currentWeight
@@ -441,6 +451,7 @@ struct UserProfile: Codable {
         self.dailyCalories = dailyCalories
         self.dailyProtein = dailyProtein
         self.weeklyWorkoutGoal = weeklyWorkoutGoal
+        self.highestRankAchieved = highestRankAchieved
     }
 }
 

@@ -33,7 +33,12 @@
 		F4011BCA2E8BB1D600B1C94E /* FirestoreManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4011BC92E8BB1D600B1C94E /* FirestoreManager.swift */; };
 		F4011BCC2E8BB35A00B1C94E /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = F4011BCB2E8BB35A00B1C94E /* GoogleService-Info.plist */; };
 		F4A93B5BA8488C7C4453B7C9 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4BA0F54FA2018BFFEAAEBD3 /* OnboardingView.swift */; };
-/* End PBXBuildFile section */
+		096F14F6162E4223BFE0C256 /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51EB66D2C21E44F3B5E796D1 /* ChatModels.swift */; };
+		EE3BB43151644F9499C93E66 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D28C2A30F6B4B448F729749 /* ChatView.swift */; };
+		927C8AD446D3464689337F92 /* AIAssistantModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AEED0DE65BA48BF995B1231 /* AIAssistantModels.swift */; };
+		58482D1DA4474FDA92CE6C83 /* AIAssistantView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F5BE3201B0140F5A0E08BAA /* AIAssistantView.swift */; };
+				209C01C20CFF411D8D23A4E0 /* AISettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F837B4C06614FCD987C22ED /* AISettingsView.swift */; };
+		/* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		CE1F71AC2CAE00002900ABCD /* WorkIn.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WorkIn.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -60,7 +65,12 @@
 		F4011BC92E8BB1D600B1C94E /* FirestoreManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirestoreManager.swift; sourceTree = "<group>"; };
 		F4011BCB2E8BB35A00B1C94E /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		F4BA0F54FA2018BFFEAAEBD3 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
-/* End PBXFileReference section */
+		51EB66D2C21E44F3B5E796D1 /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModels.swift; sourceTree = "<group>"; };
+		7D28C2A30F6B4B448F729749 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		9AEED0DE65BA48BF995B1231 /* AIAssistantModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAssistantModels.swift; sourceTree = "<group>"; };
+		9F5BE3201B0140F5A0E08BAA /* AIAssistantView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAssistantView.swift; sourceTree = "<group>"; };
+				3F837B4C06614FCD987C22ED /* AISettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISettingsView.swift; sourceTree = "<group>"; };
+		/* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		CE1F71A92CAE00002900ABCD /* Frameworks */ = {
@@ -125,6 +135,8 @@
 				CE1F71D22CAE00002900ABCD /* ExerciseDatabase.swift */,
 				CE1F71D42CAE00002900ABCD /* WorkoutTemplates.swift */,
 				CE1F71DA2CAE00002900ABCD /* FoodDatabase.swift */,
+				51EB66D2C21E44F3B5E796D1 /* ChatModels.swift */,
+				9AEED0DE65BA48BF995B1231 /* AIAssistantModels.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -138,7 +150,10 @@
 				CE1F71C32CAE00002900ABCD /* NutritionView.swift */,
 				CE1F71C52CAE00002900ABCD /* ProgressView.swift */,
 				CE1F71C72CAE00002900ABCD /* ProfileView.swift */,
-			);
+				7D28C2A30F6B4B448F729749 /* ChatView.swift */,
+				9F5BE3201B0140F5A0E08BAA /* AIAssistantView.swift */,
+			
+				3F837B4C06614FCD987C22ED /* AISettingsView.swift */,);
 			path = Views;
 			sourceTree = "<group>";
 		};
@@ -248,7 +263,12 @@
 				CE1F71E02CAE00002900ABCD /* ActiveExerciseView.swift in Sources */,
 				CE1F71E32CAE00002900ABCD /* VolumeChartView.swift in Sources */,
 				CE1F71B02CAE00002900ABCD /* WorkInApp.swift in Sources */,
-			);
+				096F14F6162E4223BFE0C256 /* ChatModels.swift in Sources */,
+				EE3BB43151644F9499C93E66 /* ChatView.swift in Sources */,
+				927C8AD446D3464689337F92 /* AIAssistantModels.swift in Sources */,
+				58482D1DA4474FDA92CE6C83 /* AIAssistantView.swift in Sources */,
+			
+				209C01C20CFF411D8D23A4E0 /* AISettingsView.swift in Sources */,);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */

@@ -7,6 +7,8 @@ struct ContentView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var authManager: AuthenticationManager
     @EnvironmentObject var profileStore: UserProfileStore
+    @EnvironmentObject var chatManager: ChatManager
+    @EnvironmentObject var templateStore: TemplateStore
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -39,6 +41,30 @@ struct ContentView: View {
                 }
                 .tag(2)
 
+            ChatView()
+                .environmentObject(chatManager)
+                .environmentObject(authManager)
+                .environmentObject(profileStore)
+                .environmentObject(themeManager)
+                .environmentObject(workoutStore)
+                .tabItem {
+                    Image(systemName: "message.fill")
+                    Text("Chat")
+                }
+                .tag(3)
+
+            AIAssistantView()
+                .environmentObject(profileStore)
+                .environmentObject(workoutStore)
+                .environmentObject(nutritionStore)
+                .environmentObject(templateStore)
+                .environmentObject(themeManager)
+                .tabItem {
+                    Image(systemName: "sparkles")
+                    Text("AI")
+                }
+                .tag(4)
+
             ProfileView()
                 .environmentObject(themeManager)
                 .environmentObject(authManager)
@@ -48,7 +74,7 @@ struct ContentView: View {
                     Image(systemName: "person.fill")
                     Text("Profile")
                 }
-                .tag(3)
+                .tag(5)
         }
         .accentColor(themeManager.accentColor)
         .background(themeManager.backgroundColor)

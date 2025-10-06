@@ -5,7 +5,9 @@ struct AuthenticationView: View {
     @EnvironmentObject var workoutStore: WorkoutStore
     @EnvironmentObject var nutritionStore: NutritionStore
     @EnvironmentObject var themeManager: ThemeManager
-    @StateObject private var profileStore = UserProfileStore()
+    @EnvironmentObject var profileStore: UserProfileStore
+    @EnvironmentObject var chatManager: ChatManager
+    @EnvironmentObject var templateStore: TemplateStore
     @State private var isSignUp = false
 
     var body: some View {
@@ -22,6 +24,8 @@ struct AuthenticationView: View {
                     .environmentObject(nutritionStore)
                     .environmentObject(themeManager)
                     .environmentObject(profileStore)
+                    .environmentObject(chatManager)
+                    .environmentObject(templateStore)
             }
         } else {
             NavigationView {

@@ -302,7 +302,7 @@ class WorkoutStore: ObservableObject {
 
 // MARK: - Strength Ranking System
 
-enum StrengthRank: String, CaseIterable {
+enum StrengthRank: String, CaseIterable, Codable {
     case bronze = "Bronze"
     case silver = "Silver"
     case gold = "Gold"
