@@ -5,7 +5,7 @@ class AIAssistantService {
     static let shared = AIAssistantService()
 
     private var apiKey: String = ""
-    private let apiURL = "https://api.openai.com/v1/chat/completions"
+    private let apiURL = "https://openrouter.ai/api/v1/chat/completions"
 
     init() {
         // Load API key from UserDefaults
@@ -146,6 +146,7 @@ class AIAssistantService {
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("https://github.com/WorkIn-App", forHTTPHeaderField: "HTTP-Referer")
 
         let requestBody: [String: Any] = [
             "model": "gpt-4o-mini",
