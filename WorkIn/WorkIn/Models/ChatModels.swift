@@ -99,16 +99,34 @@ class ChatManager: ObservableObject {
         // Check for profanity and inappropriate content
         let lowercaseMessage = message.lowercased()
 
-        // Basic profanity filter (you can expand this list)
+        // Basic profanity filter - only match whole words
         let bannedWords = [
-            "fuck", "shit", "bitch", "ass", "damn", "hell", "bastard",
-            "dick", "cock", "pussy", "cunt", "whore", "slut", "fag",
-            "nigger", "nigga", "retard", "rape", "nazi", "kill yourself",
-            "kys", "suicide", "die", "kill", "murder"
+            "fuck", "fucking", "fucker", "fck",
+            "shit", "shitting", "shitty",
+            "bitch", "bitches",
+            "asshole", "assholes",
+            "damn", "dammit",
+            "dick", "dicks",
+            "cock", "cocks",
+            "pussy", "pussies",
+            "cunt", "cunts",
+            "whore", "whores",
+            "slut", "sluts",
+            "fag", "faggot", "fags",
+            "nigger", "nigga", "niggers",
+            "retard", "retarded", "retards",
+            "rape", "raping", "rapist",
+            "nazi", "nazis",
+            "kill yourself", "kys",
+            "suicide", "kill", "murder"
         ]
 
-        for word in bannedWords {
-            if lowercaseMessage.contains(word) {
+        // Split message into words (handles punctuation)
+        let words = lowercaseMessage.components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+
+        for word in words {
+            if bannedWords.contains(word) {
                 return ModerationResult(isAllowed: false, reason: "Inappropriate language detected")
             }
         }
