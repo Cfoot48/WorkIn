@@ -54,7 +54,10 @@ struct ExerciseDatabase {
         ExerciseTemplate(name: "Crunches", muscleGroups: ["Core"], category: .core, equipment: .bodyweight),
         ExerciseTemplate(name: "Russian Twists", muscleGroups: ["Core", "Obliques"], category: .core, equipment: .bodyweight),
         ExerciseTemplate(name: "Mountain Climbers", muscleGroups: ["Core", "Cardio"], category: .core, equipment: .bodyweight),
-        ExerciseTemplate(name: "Dead Bug", muscleGroups: ["Core"], category: .core, equipment: .bodyweight)
+        ExerciseTemplate(name: "Dead Bug", muscleGroups: ["Core"], category: .core, equipment: .bodyweight),
+
+        // Full Body / Conditioning
+        ExerciseTemplate(name: "Farmer's Carries", muscleGroups: ["Forearms", "Core", "Traps"], category: .pull, equipment: .dumbbell)
     ]
 
     static func searchExercises(_ searchText: String) -> [ExerciseTemplate] {

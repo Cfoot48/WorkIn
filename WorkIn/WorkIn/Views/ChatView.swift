@@ -20,11 +20,19 @@ struct ChatView: View {
                     ScrollView {
                         LazyVStack(spacing: 12) {
                             ForEach(chatManager.messages) { message in
-                                ChatMessageRow(message: message)
-                                    .id(message.id)
+                                ChatMessageRow(
+                                    message: message,
+                                    onDelete: {
+                                        deleteMessage(message)
+                                    }
+                                )
+                                .id(message.id)
                             }
                         }
                         .padding()
+                    }
+                    .onTapGesture {
+                        hideKeyboard()
                     }
                     .onAppear {
                         scrollProxy = proxy
@@ -75,6 +83,7 @@ struct ChatView: View {
             return
         }
 
+        // Use displayName if set, otherwise use "Anonymous"
         let username = profileStore.profile.displayName.isEmpty ? "Anonymous" : profileStore.profile.displayName
 
         // Calculate user's highest rank from all workouts
@@ -86,7 +95,8 @@ struct ChatView: View {
                     userId: userId,
                     username: username,
                     message: trimmedMessage,
-                    userHighestRank: highestRank
+                    userHighestRank: highestRank,
+                    userEmail: authManager.user?.email
                 )
                 await MainActor.run {
                     messageText = ""
@@ -106,6 +116,23 @@ struct ChatView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             withAnimation {
                 scrollProxy?.scrollTo(lastMessage.id, anchor: .bottom)
+            }
+        }
+    }
+
+    private func deleteMessage(_ message: ChatMessage) {
+        guard let userId = authManager.user?.uid else { return }
+        let userEmail = authManager.user?.email
+
+        Task {
+            do {
+                try await chatManager.deleteMessage(message, currentUserId: userId, userEmail: userEmail)
+            } catch {
+                print("💬 Error deleting message: \(error.localizedDescription)")
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    showingError = true
+                }
             }
         }
     }
@@ -134,11 +161,20 @@ struct ChatView: View {
 
 struct ChatMessageRow: View {
     let message: ChatMessage
+    let onDelete: () -> Void
+
     @EnvironmentObject var authManager: AuthenticationManager
     @EnvironmentObject var themeManager: ThemeManager
+    @State private var showingDeleteConfirmation = false
 
     var isCurrentUser: Bool {
         message.userId == authManager.user?.uid
+    }
+
+    var canDelete: Bool {
+        // User can delete their own messages or admin can delete any message
+        let isAdmin = authManager.user?.email == "wkbf10@gmail.com"
+        return isCurrentUser || isAdmin
     }
 
     var body: some View {
@@ -157,6 +193,13 @@ struct ChatMessageRow: View {
                             .font(.caption)
                             .fontWeight(.semibold)
                             .foregroundColor(themeManager.secondaryTextColor)
+
+                        if message.isDeveloper {
+                            Text("(Developer)")
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.blue)
+                        }
                     }
 
                     Text(message.message)
@@ -164,6 +207,15 @@ struct ChatMessageRow: View {
                         .background(themeManager.cardBackgroundColor)
                         .foregroundColor(themeManager.primaryTextColor)
                         .cornerRadius(12)
+                        .contextMenu {
+                            if canDelete {
+                                Button(role: .destructive) {
+                                    showingDeleteConfirmation = true
+                                } label: {
+                                    Label("Delete Message", systemImage: "trash")
+                                }
+                            }
+                        }
 
                     Text(formatTime(message.timestamp))
                         .font(.caption2)
@@ -178,6 +230,13 @@ struct ChatMessageRow: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     // Username with rank badge
                     HStack(spacing: 6) {
+                        if message.isDeveloper {
+                            Text("(Developer)")
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.blue)
+                        }
+
                         Text(message.username)
                             .font(.caption)
                             .fontWeight(.semibold)
@@ -194,12 +253,29 @@ struct ChatMessageRow: View {
                         .background(themeManager.accentColor)
                         .foregroundColor(.white)
                         .cornerRadius(12)
+                        .contextMenu {
+                            if canDelete {
+                                Button(role: .destructive) {
+                                    showingDeleteConfirmation = true
+                                } label: {
+                                    Label("Delete Message", systemImage: "trash")
+                                }
+                            }
+                        }
 
                     Text(formatTime(message.timestamp))
                         .font(.caption2)
                         .foregroundColor(themeManager.secondaryTextColor)
                 }
             }
+        }
+        .confirmationDialog("Delete Message", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                onDelete()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to delete this message?")
         }
     }
 

@@ -4,6 +4,7 @@ struct WorkoutView: View {
     @EnvironmentObject var workoutStore: WorkoutStore
     @EnvironmentObject var profileStore: UserProfileStore
     @EnvironmentObject var templateStore: TemplateStore
+    @EnvironmentObject var themeManager: ThemeManager
     @State private var showingExerciseSelection = false
     @State private var showingAIWorkoutGenerator = false
 
@@ -21,18 +22,30 @@ struct WorkoutView: View {
                     WorkoutHistoryView(workouts: workoutStore.workouts, workoutStore: workoutStore, bodyWeight: profileStore.profile.currentWeight)
                 }
             }
+            .background(themeManager.backgroundColor)
             .navigationTitle("Workouts")
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { showingAIWorkoutGenerator = true }) {
-                        Image(systemName: "sparkles")
-                            .foregroundColor(.purple)
+                    if workoutStore.currentWorkout == nil {
+                        Button(action: { showingAIWorkoutGenerator = true }) {
+                            Image(systemName: "sparkles")
+                                .foregroundColor(.purple)
+                        }
                     }
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("New Workout") {
-                        startQuickWorkout()
+                    if workoutStore.currentWorkout == nil {
+                        Button("New Workout") {
+                            startQuickWorkout()
+                        }
+                    } else {
+                        Button(action: { showingExerciseSelection = true }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "plus.circle.fill")
+                                Text("Add Exercise")
+                            }
+                        }
                     }
                 }
             }
@@ -70,21 +83,29 @@ struct WorkoutHistoryView: View {
     let workouts: [Workout]
     @ObservedObject var workoutStore: WorkoutStore
     let bodyWeight: Double
+    @EnvironmentObject var themeManager: ThemeManager
 
     var body: some View {
-        List {
-            ForEach(workouts) { workout in
-                WorkoutRowView(workout: workout, bodyWeight: bodyWeight)
+        ZStack {
+            themeManager.backgroundColor
+                .ignoresSafeArea()
+
+            List {
+                ForEach(workouts) { workout in
+                    WorkoutRowView(workout: workout, bodyWeight: bodyWeight)
+                        .listRowBackground(themeManager.secondaryBackgroundColor)
+                }
+                .onDelete(perform: workoutStore.deleteWorkouts)
             }
-            .onDelete(perform: workoutStore.deleteWorkouts)
+            .listStyle(PlainListStyle())
         }
-        .listStyle(PlainListStyle())
     }
 }
 
 struct WorkoutRowView: View {
     let workout: Workout
     let bodyWeight: Double
+    @EnvironmentObject var themeManager: ThemeManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -92,12 +113,13 @@ struct WorkoutRowView: View {
                 Text(workout.name)
                     .font(.headline)
                     .fontWeight(.semibold)
+                    .foregroundColor(themeManager.primaryTextColor)
 
                 Spacer()
 
                 Text(workout.date, style: .date)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(themeManager.secondaryTextColor)
             }
 
             HStack(alignment: .center) {
@@ -105,7 +127,7 @@ struct WorkoutRowView: View {
                 if workout.duration > 0 {
                     Text(formatDuration(workout.duration))
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(themeManager.secondaryTextColor)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
@@ -124,7 +146,7 @@ struct WorkoutRowView: View {
                 // Exercise count on the right
                 Text("\(workout.exercises.count) exercises")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(themeManager.secondaryTextColor)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .onAppear {
@@ -142,9 +164,10 @@ struct WorkoutRowView: View {
                         if workout.exercises.count > 3 {
                             Text("+\(workout.exercises.count - 3) more")
                                 .font(.caption)
+                                .foregroundColor(themeManager.secondaryTextColor)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(Color.gray.opacity(0.2))
+                                .background(themeManager.cardBackgroundColor)
                                 .cornerRadius(8)
                         }
                     }
@@ -197,6 +220,11 @@ struct ActiveWorkoutView: View {
     @State private var elapsedTime: TimeInterval = 0
     @State private var workoutCompletion: WorkoutCompletion?
     @State private var showingEmptyWorkoutAlert = false
+    @State private var showingCancelConfirmation = false
+
+    private func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
 
     var body: some View {
         ScrollView {
@@ -212,6 +240,9 @@ struct ActiveWorkoutView: View {
                 actionButtons
             }
             .padding()
+        }
+        .onTapGesture {
+            hideKeyboard()
         }
         .onAppear {
             startTimer()
@@ -306,8 +337,12 @@ struct ActiveWorkoutView: View {
                 ActiveExerciseView(
                     exercise: exercise,
                     exerciseIndex: index,
+                    bodyWeight: bodyWeight,
                     onUpdateSets: { updatedSets in
                         updateExerciseSets(exerciseIndex: index, sets: updatedSets)
+                    },
+                    onDeleteExercise: {
+                        deleteExercise(at: index)
                     }
                 )
             }
@@ -316,31 +351,41 @@ struct ActiveWorkoutView: View {
 
     private var actionButtons: some View {
         VStack(spacing: 12) {
-            Button(action: { showingExerciseSelection = true }) {
-                HStack {
-                    Image(systemName: "plus.circle.fill")
-                    Text("Add Exercise")
-                        .fontWeight(.semibold)
+            HStack(spacing: 12) {
+                Button(action: { showingCancelConfirmation = true }) {
+                    HStack {
+                        Image(systemName: "xmark.circle.fill")
+                        Text("Cancel")
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.red)
+                    .cornerRadius(10)
                 }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .cornerRadius(10)
-            }
 
-            Button(action: finishWorkout) {
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                    Text("Finish Workout")
-                        .fontWeight(.semibold)
+                Button(action: finishWorkout) {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("Finish")
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.green)
+                    .cornerRadius(10)
                 }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.green)
-                .cornerRadius(10)
             }
+        }
+        .alert("Cancel Workout", isPresented: $showingCancelConfirmation) {
+            Button("Keep Working Out", role: .cancel) { }
+            Button("Cancel Workout", role: .destructive) {
+                cancelWorkout()
+            }
+        } message: {
+            Text("Are you sure you want to cancel this workout? All progress will be lost.")
         }
     }
 
@@ -379,6 +424,27 @@ struct ActiveWorkoutView: View {
             workoutStore.currentWorkout = currentWorkout
             print("📝 updateExerciseSets: Store workout now has \(workoutStore.currentWorkout?.exercises[exerciseIndex].sets.count ?? 0) sets")
         }
+    }
+
+    private func deleteExercise(at index: Int) {
+        guard index >= 0 && index < workout.exercises.count else { return }
+
+        print("🗑️ Deleting exercise at index \(index): \(workout.exercises[index].name)")
+
+        var updatedWorkout = workout
+        updatedWorkout.exercises.remove(at: index)
+        workout = updatedWorkout
+
+        // Update store
+        if var currentWorkout = workoutStore.currentWorkout {
+            currentWorkout.exercises.remove(at: index)
+            workoutStore.currentWorkout = currentWorkout
+        }
+    }
+
+    private func cancelWorkout() {
+        stopTimer()
+        workoutStore.currentWorkout = nil
     }
 
     private func finishWorkout() {
@@ -550,15 +616,23 @@ struct WorkoutCompletionSummaryView: View {
                 VStack(spacing: 24) {
                     // Celebration Header
                     VStack(spacing: 16) {
-                        Text("🎉 Workout Complete! 🎉")
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundColor(themeManager.accentColor)
+                        HStack(spacing: 8) {
+                            Text("🎉")
+                                .font(.title)
+                            Text("Workout Complete!")
+                                .font(.title)
+                                .fontWeight(.bold)
+                                .foregroundColor(themeManager.accentColor)
+                            Text("🎉")
+                                .font(.title)
+                        }
+                        .frame(maxWidth: .infinity)
 
                         Text(completedWorkout.name)
                             .font(.title2)
                             .fontWeight(.semibold)
                             .foregroundColor(themeManager.primaryTextColor)
+                            .multilineTextAlignment(.center)
 
                         Text(formatDuration(completedWorkout.duration))
                             .font(.headline)
@@ -678,7 +752,7 @@ struct WorkoutCompletionSummaryView: View {
                         }
 
                         ForEach(completedWorkout.exercises) { exercise in
-                            ExerciseSummaryCard(exercise: exercise)
+                            ExerciseSummaryCard(exercise: exercise, bodyWeight: completedWorkout.bodyWeight ?? 181)
                         }
                     }
                     .padding()
@@ -740,7 +814,13 @@ struct WorkoutCompletionSummaryView: View {
 
 struct ExerciseSummaryCard: View {
     let exercise: Exercise
+    let bodyWeight: Double
     @EnvironmentObject var themeManager: ThemeManager
+
+    private var exerciseRank: StrengthRank? {
+        guard let maxSet = exercise.sets.max(by: { $0.weight < $1.weight }), bodyWeight > 0 else { return nil }
+        return StrengthStandards.getRank(exerciseName: exercise.name, weight: maxSet.weight, bodyWeight: bodyWeight)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -758,6 +838,13 @@ struct ExerciseSummaryCard: View {
                 }
 
                 Spacer()
+
+                if let rank = exerciseRank {
+                    Image(rank.badgeImageName)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 30, height: 30)
+                }
 
                 Text("\(exercise.sets.count) sets")
                     .font(.caption)

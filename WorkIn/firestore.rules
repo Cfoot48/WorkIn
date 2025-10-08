@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user owns the document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Users collection - users can read and write their own data
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isOwner(userId);
+
+      // User workouts
+      match /workouts/{workoutId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && isOwner(userId);
+      }
+
+      // User nutrition
+      match /nutrition/{nutritionId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && isOwner(userId);
+      }
+
+      // User profile
+      match /profile/{document=**} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && isOwner(userId);
+      }
+    }
+
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth.token.email == 'wkbf10@gmail.com';
+    }
+
+    // Global chat - anyone authenticated can read and send messages
+    // Messages are moderated by Cloud Function before sending
+    match /globalChat/{messageId} {
+      allow read: if isSignedIn();
+
+      // Allow create only if user is authenticated and message has moderated flag
+      // The Cloud Function should set this flag after checking with Perspective API
+      allow create: if isSignedIn()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.moderated == true;
+
+      // Messages can be deleted by their owner or by admin
+      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Messages cannot be edited
+      allow update: if false;
+    }
+
+    // Moderation logs - only Cloud Functions can write
+    match /moderationLogs/{logId} {
+      allow read: if false; // No one can read (admin only via console)
+      allow write: if false; // Only Cloud Functions can write
+    }
+  }
+}

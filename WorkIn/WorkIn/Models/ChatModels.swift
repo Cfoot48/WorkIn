@@ -1,5 +1,6 @@
 import Foundation
 import FirebaseFirestore
+import FirebaseFunctions
 
 // MARK: - Chat Message Model
 struct ChatMessage: Identifiable, Codable, Equatable {
@@ -9,14 +10,18 @@ struct ChatMessage: Identifiable, Codable, Equatable {
     let message: String
     let timestamp: Date
     let userHighestRank: StrengthRank?
+    let isDeveloper: Bool
+    var firestoreDocumentId: String? // Store the Firestore document ID for deletion
 
-    init(id: UUID = UUID(), userId: String, username: String, message: String, timestamp: Date = Date(), userHighestRank: StrengthRank? = nil) {
+    init(id: UUID = UUID(), userId: String, username: String, message: String, timestamp: Date = Date(), userHighestRank: StrengthRank? = nil, isDeveloper: Bool = false, firestoreDocumentId: String? = nil) {
         self.id = id
         self.userId = userId
         self.username = username
         self.message = message
         self.timestamp = timestamp
         self.userHighestRank = userHighestRank
+        self.isDeveloper = isDeveloper
+        self.firestoreDocumentId = firestoreDocumentId
     }
 }
 
@@ -56,7 +61,9 @@ class ChatManager: ObservableObject {
                 print("💬 ChatManager: Received \(snapshot.documents.count) messages")
 
                 let messages = snapshot.documents.compactMap { document -> ChatMessage? in
-                    try? self.parseMessage(from: document.data(), id: document.documentID)
+                    var message = try? self.parseMessage(from: document.data(), id: document.documentID)
+                    message?.firestoreDocumentId = document.documentID
+                    return message
                 }
 
                 DispatchQueue.main.async {
@@ -67,16 +74,18 @@ class ChatManager: ObservableObject {
     }
 
     // MARK: - Send Message
-    func sendMessage(userId: String, username: String, message: String, userHighestRank: StrengthRank?) async throws {
+    func sendMessage(userId: String, username: String, message: String, userHighestRank: StrengthRank?, userEmail: String?) async throws {
         print("💬 ChatManager: Sending message from \(username)")
 
-        // Content moderation check
-        let moderationResult = try await moderateContent(message)
+        // Content moderation check using Cloud Function
+        let moderationResult = try await moderateContentWithPerspectiveAPI(message)
 
         if !moderationResult.isAllowed {
-            print("💬 ChatManager: Message blocked by content moderation: \(moderationResult.reason)")
+            print("💬 ChatManager: Message blocked by Perspective API: \(moderationResult.reason)")
             throw ChatError.messageBlocked(reason: moderationResult.reason)
         }
+
+        let isDeveloper = userEmail == "wkbf10@gmail.com"
 
         let messageData: [String: Any] = [
             "id": UUID().uuidString,
@@ -85,6 +94,7 @@ class ChatManager: ObservableObject {
             "message": message,
             "timestamp": FieldValue.serverTimestamp(),
             "userHighestRank": userHighestRank?.rawValue ?? "",
+            "isDeveloper": isDeveloper,
             "moderated": true
         ]
 
@@ -94,71 +104,48 @@ class ChatManager: ObservableObject {
         print("💬 ChatManager: Message sent successfully")
     }
 
-    // MARK: - Content Moderation
-    private func moderateContent(_ message: String) async throws -> ModerationResult {
-        // Check for profanity and inappropriate content
-        let lowercaseMessage = message.lowercased()
+    // MARK: - Public Moderation Method (for usernames and other content)
+    func moderateContent(_ content: String) async throws -> ModerationResult {
+        return try await moderateContentWithPerspectiveAPI(content)
+    }
 
-        // Hard-banned words that should always be blocked as whole words
-        let wholeBannedWords = [
-            "fuck", "fucking", "fucker", "fucked", "fck", "fuk",
-            "shit", "shitting", "shitty", "sh1t", "shyt",
-            "bitch", "bitches", "bitching", "b1tch", "biatch",
-            "asshole", "assholes", "a$$hole",
-            "bastard", "bastards",
-            "damn", "dammit", "damned",
-            "dick", "dicks", "d1ck",
-            "cock", "cocks", "c0ck",
-            "pussy", "pussies", "puss",
-            "cunt", "cunts", "c*nt",
-            "whore", "whores", "wh0re",
-            "slut", "sluts", "slutty", "sl*t",
-            "fag", "faggot", "fags", "f@g",
-            "nigger", "nigga", "niggers", "n1gga", "n1gger",
-            "retard", "retarded", "retards", "retrd",
-            "rape", "raping", "rapist", "r@pe",
-            "nazi", "nazis", "naz1",
-            "kys"
-        ]
+    // MARK: - Content Moderation with Perspective API
+    private func moderateContentWithPerspectiveAPI(_ message: String) async throws -> ModerationResult {
+        print("💬 ChatManager: Calling Cloud Function for moderation")
 
-        // Phrases that should be blocked as substrings
-        let bannedPhrases = [
-            "kill yourself",
-            "kill your self"
-        ]
+        // Call the Cloud Function
+        let functions = Functions.functions()
+        let moderateMessage = functions.httpsCallable("moderateMessage")
 
-        // Check for banned phrases first (substring match)
-        for phrase in bannedPhrases {
-            if lowercaseMessage.contains(phrase) {
+        do {
+            let result = try await moderateMessage.call(["message": message])
+
+            guard let data = result.data as? [String: Any],
+                  let isAllowed = data["isAllowed"] as? Bool,
+                  let reason = data["reason"] as? String else {
+                print("💬 ChatManager: Invalid response from Cloud Function")
+                throw ChatError.invalidData
+            }
+
+            print("💬 ChatManager: Moderation result - isAllowed: \(isAllowed), reason: \(reason)")
+
+            return ModerationResult(isAllowed: isAllowed, reason: reason)
+
+        } catch {
+            print("💬 ChatManager: Cloud Function error: \(error.localizedDescription)")
+
+            // Fallback to basic client-side check if Cloud Function fails
+            if message.lowercased().contains("fuck") ||
+               message.lowercased().contains("shit") ||
+               message.lowercased().contains("nigger") ||
+               message.lowercased().contains("cunt") {
                 return ModerationResult(isAllowed: false, reason: "Inappropriate language detected")
             }
+
+            // If Cloud Function is unavailable, allow message but log warning
+            print("⚠️ ChatManager: Using fallback moderation - allowing message")
+            return ModerationResult(isAllowed: true, reason: "")
         }
-
-        // Split message into words (handles punctuation)
-        let words = lowercaseMessage.components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .filter { !$0.isEmpty }
-
-        // Check for whole banned words
-        for word in words {
-            if wholeBannedWords.contains(word) {
-                return ModerationResult(isAllowed: false, reason: "Inappropriate language detected")
-            }
-        }
-
-        // Check for spam (repeated characters)
-        let repeatedPattern = try? NSRegularExpression(pattern: "(.)\\1{4,}", options: [])
-        if let matches = repeatedPattern?.matches(in: message, range: NSRange(message.startIndex..., in: message)),
-           !matches.isEmpty {
-            return ModerationResult(isAllowed: false, reason: "Spam detected")
-        }
-
-        // Check for excessive caps
-        let uppercaseCount = message.filter { $0.isUppercase }.count
-        if message.count > 10 && Double(uppercaseCount) / Double(message.count) > 0.7 {
-            return ModerationResult(isAllowed: false, reason: "Excessive caps")
-        }
-
-        return ModerationResult(isAllowed: true, reason: "")
     }
 
     // MARK: - Parse Message
@@ -174,6 +161,7 @@ class ChatManager: ObservableObject {
 
         let rankString = data["userHighestRank"] as? String ?? ""
         let rank = StrengthRank(rawValue: rankString)
+        let isDeveloper = data["isDeveloper"] as? Bool ?? false
 
         return ChatMessage(
             id: messageId,
@@ -181,8 +169,30 @@ class ChatManager: ObservableObject {
             username: username,
             message: message,
             timestamp: timestamp,
-            userHighestRank: rank
+            userHighestRank: rank,
+            isDeveloper: isDeveloper
         )
+    }
+
+    // MARK: - Delete Message
+    func deleteMessage(_ message: ChatMessage, currentUserId: String, userEmail: String?) async throws {
+        guard let documentId = message.firestoreDocumentId else {
+            throw ChatError.invalidData
+        }
+
+        // Check if user is admin or message owner
+        let isAdmin = userEmail == "wkbf10@gmail.com"
+        let isOwner = message.userId == currentUserId
+
+        guard isAdmin || isOwner else {
+            throw ChatError.unauthorizedDeletion
+        }
+
+        print("💬 ChatManager: Deleting message \(documentId)")
+
+        try await db.collection("globalChat").document(documentId).delete()
+
+        print("💬 ChatManager: Message deleted successfully")
     }
 
     // MARK: - Stop Listening
@@ -207,6 +217,7 @@ enum ChatError: Error, LocalizedError {
     case invalidData
     case userNotAuthenticated
     case messageBlocked(reason: String)
+    case unauthorizedDeletion
 
     var errorDescription: String? {
         switch self {
@@ -216,6 +227,8 @@ enum ChatError: Error, LocalizedError {
             return "User must be authenticated to chat"
         case .messageBlocked(let reason):
             return "Message blocked: \(reason)"
+        case .unauthorizedDeletion:
+            return "You don't have permission to delete this message"
         }
     }
 }

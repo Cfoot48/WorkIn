@@ -5,6 +5,7 @@ struct OnboardingView: View {
     @Binding var isCompleted: Bool
 
     @State private var currentPage = 0
+    @State private var displayName = ""
     @State private var height = ""
     @State private var currentWeight = ""
     @State private var goalWeight = ""
@@ -19,7 +20,7 @@ struct OnboardingView: View {
         VStack {
             // Progress indicator
             HStack(spacing: 8) {
-                ForEach(0..<5) { index in
+                ForEach(0..<6) { index in
                     Rectangle()
                         .fill(index <= currentPage ? Color.blue : Color.gray.opacity(0.3))
                         .frame(height: 4)
@@ -32,26 +33,29 @@ struct OnboardingView: View {
                 WelcomePage()
                     .tag(0)
 
+                DisplayNamePage(displayName: $displayName)
+                    .tag(1)
+
                 BodyStatsPage(
                     height: $height,
                     currentWeight: $currentWeight,
                     age: $age,
                     gender: $gender
                 )
-                .tag(1)
+                .tag(2)
 
                 GoalWeightPage(
                     currentWeight: currentWeight,
                     goalWeight: $goalWeight,
                     weightChangeRate: $weightChangeRate
                 )
-                .tag(2)
+                .tag(3)
 
                 ActivityPage(
                     activityLevel: $activityLevel,
                     weeklyWorkouts: $weeklyWorkouts
                 )
-                .tag(3)
+                .tag(4)
 
                 NutritionGoalsPage(
                     currentWeight: currentWeight,
@@ -63,7 +67,7 @@ struct OnboardingView: View {
                     age: age,
                     proteinGoal: $proteinGoal
                 )
-                .tag(4)
+                .tag(5)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .animation(.easeInOut, value: currentPage)
@@ -81,8 +85,8 @@ struct OnboardingView: View {
 
                 Spacer()
 
-                Button(currentPage < 4 ? "Next" : "Complete") {
-                    if currentPage < 4 {
+                Button(currentPage < 5 ? "Next" : "Complete") {
+                    if currentPage < 5 {
                         withAnimation {
                             currentPage += 1
                         }
@@ -100,10 +104,11 @@ struct OnboardingView: View {
     private var canProceed: Bool {
         switch currentPage {
         case 0: return true
-        case 1: return !height.isEmpty && !currentWeight.isEmpty && !age.isEmpty
-        case 2: return !goalWeight.isEmpty
-        case 3: return !weeklyWorkouts.isEmpty
-        case 4: return !proteinGoal.isEmpty
+        case 1: return !displayName.isEmpty
+        case 2: return !height.isEmpty && !currentWeight.isEmpty && !age.isEmpty
+        case 3: return !goalWeight.isEmpty
+        case 4: return !weeklyWorkouts.isEmpty
+        case 5: return !proteinGoal.isEmpty
         default: return false
         }
     }
@@ -130,6 +135,7 @@ struct OnboardingView: View {
         )
 
         // Update profile
+        profileStore.profile.displayName = displayName
         profileStore.profile.height = heightValue
         profileStore.profile.currentWeight = currentWeightValue
         profileStore.profile.goalWeight = goalWeightValue
@@ -244,6 +250,35 @@ struct WelcomePage: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
+
+            Spacer()
+        }
+        .padding()
+    }
+}
+
+struct DisplayNamePage: View {
+    @Binding var displayName: String
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Text("Choose Your Name")
+                .font(.title2)
+                .fontWeight(.bold)
+
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Display Name")
+                        .font(.headline)
+                    TextField("Enter your name", text: $displayName)
+                        .textFieldStyle(.roundedBorder)
+                        .autocapitalization(.words)
+                    Text("This will be shown in your profile and chat messages")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding()
 
             Spacer()
         }

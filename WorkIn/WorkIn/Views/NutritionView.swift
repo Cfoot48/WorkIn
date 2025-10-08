@@ -4,6 +4,7 @@ struct NutritionView: View {
     @EnvironmentObject var nutritionStore: NutritionStore
     @EnvironmentObject var templateStore: TemplateStore
     @EnvironmentObject var profileStore: UserProfileStore
+    @EnvironmentObject var themeManager: ThemeManager
     @State private var showingAddFood = false
     @State private var showingBarcodeScanner = false
     @State private var showingScannedFood = false
@@ -23,6 +24,7 @@ struct NutritionView: View {
                 }
                 .padding()
             }
+            .background(themeManager.backgroundColor)
             .navigationTitle("Nutrition")
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarLeading) {

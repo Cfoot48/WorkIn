@@ -46,6 +46,9 @@ struct ProfileView: View {
 struct ProfileHeaderView: View {
     @ObservedObject var authManager: AuthenticationManager
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var profileStore: UserProfileStore
+    @State private var showingEditName = false
+    @State private var newName = ""
 
     var body: some View {
         VStack(spacing: 16) {
@@ -54,10 +57,27 @@ struct ProfileHeaderView: View {
                 .foregroundColor(themeManager.accentColor)
 
             VStack(spacing: 4) {
-                Text(authManager.user?.email ?? "User")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(themeManager.primaryTextColor)
+                HStack {
+                    Text(profileStore.profile.displayName.isEmpty ? (authManager.user?.email ?? "User") : profileStore.profile.displayName)
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(themeManager.primaryTextColor)
+
+                    if authManager.user?.email == "wkbf10@gmail.com" {
+                        Text("(Developer)")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.blue)
+                    }
+
+                    Button(action: {
+                        newName = profileStore.profile.displayName
+                        showingEditName = true
+                    }) {
+                        Image(systemName: "pencil.circle.fill")
+                            .foregroundColor(themeManager.accentColor)
+                    }
+                }
 
                 Text("Fitness Enthusiast")
                     .font(.subheadline)
@@ -67,6 +87,25 @@ struct ProfileHeaderView: View {
         .padding()
         .background(themeManager.secondaryBackgroundColor)
         .cornerRadius(12)
+        .alert("Edit Display Name", isPresented: $showingEditName) {
+            TextField("Enter your name", text: $newName)
+            Button("Cancel", role: .cancel) {
+                newName = ""
+            }
+            Button("Save") {
+                saveNewName()
+            }
+        } message: {
+            Text("This name will be shown in your profile and chat messages")
+        }
+    }
+
+    private func saveNewName() {
+        let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedName.isEmpty {
+            profileStore.profile.displayName = trimmedName
+        }
+        newName = ""
     }
 }
 
