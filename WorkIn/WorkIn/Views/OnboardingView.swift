@@ -20,7 +20,7 @@ struct OnboardingView: View {
         VStack {
             // Progress indicator
             HStack(spacing: 8) {
-                ForEach(0..<6) { index in
+                ForEach(0..<7) { index in
                     Rectangle()
                         .fill(index <= currentPage ? Color.blue : Color.gray.opacity(0.3))
                         .frame(height: 4)
@@ -68,6 +68,9 @@ struct OnboardingView: View {
                     proteinGoal: $proteinGoal
                 )
                 .tag(5)
+
+                RatingAndContactPage()
+                    .tag(6)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .animation(.easeInOut, value: currentPage)
@@ -85,8 +88,8 @@ struct OnboardingView: View {
 
                 Spacer()
 
-                Button(currentPage < 5 ? "Next" : "Complete") {
-                    if currentPage < 5 {
+                Button(currentPage < 6 ? "Next" : "Complete") {
+                    if currentPage < 6 {
                         withAnimation {
                             currentPage += 1
                         }
@@ -109,6 +112,7 @@ struct OnboardingView: View {
         case 3: return !goalWeight.isEmpty
         case 4: return !weeklyWorkouts.isEmpty
         case 5: return !proteinGoal.isEmpty
+        case 6: return true
         default: return false
         }
     }
@@ -588,6 +592,83 @@ struct NutritionGoalsPage: View {
                 proteinGoal = String(recommendedProtein)
             }
         }
+    }
+}
+
+struct RatingAndContactPage: View {
+    var body: some View {
+        VStack(spacing: 32) {
+            Spacer()
+
+            // Star icon
+            Image(systemName: "star.fill")
+                .font(.system(size: 80))
+                .foregroundColor(.yellow)
+
+            // Title
+            Text("Enjoying WorkIn?")
+                .font(.title)
+                .fontWeight(.bold)
+                .multilineTextAlignment(.center)
+
+            // Rating section
+            VStack(spacing: 16) {
+                Text("We'd love your feedback!")
+                    .font(.title3)
+                    .multilineTextAlignment(.center)
+
+                Text("Please rate us 5 stars on the App Store")
+                    .font(.body)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+
+                // Star rating visual
+                HStack(spacing: 8) {
+                    ForEach(0..<5) { _ in
+                        Image(systemName: "star.fill")
+                            .font(.title2)
+                            .foregroundColor(.yellow)
+                    }
+                }
+                .padding(.top, 8)
+            }
+            .padding()
+            .background(Color.yellow.opacity(0.1))
+            .cornerRadius(16)
+            .padding(.horizontal)
+
+            // Contact section
+            VStack(spacing: 12) {
+                Text("Questions or Suggestions?")
+                    .font(.headline)
+
+                VStack(spacing: 8) {
+                    Text("Message us at:")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    Button(action: {
+                        if let url = URL(string: "mailto:TheWorkInApp@gmail.com") {
+                            UIApplication.shared.open(url)
+                        }
+                    }) {
+                        HStack {
+                            Image(systemName: "envelope.fill")
+                            Text("TheWorkInApp@gmail.com")
+                                .fontWeight(.semibold)
+                        }
+                        .foregroundColor(.blue)
+                    }
+                }
+            }
+            .padding()
+            .background(Color.blue.opacity(0.1))
+            .cornerRadius(16)
+            .padding(.horizontal)
+
+            Spacer()
+        }
+        .padding()
     }
 }
 
