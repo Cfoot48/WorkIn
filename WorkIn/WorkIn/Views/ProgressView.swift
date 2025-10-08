@@ -348,6 +348,7 @@ struct ProgressView: View {
 struct RecentWorkoutRowView: View {
     let workout: Workout
     let onTap: () -> Void
+    @EnvironmentObject var themeManager: ThemeManager
 
     var body: some View {
         Button(action: onTap) {
@@ -356,11 +357,11 @@ struct RecentWorkoutRowView: View {
                     HStack {
                         Text(workout.name)
                             .font(.headline)
-                            .foregroundColor(.primary)
+                            .foregroundColor(themeManager.primaryTextColor)
                         Spacer()
                         Text(formatDate(workout.date))
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(themeManager.secondaryTextColor)
                     }
 
                     HStack(spacing: 20) {
@@ -370,7 +371,7 @@ struct RecentWorkoutRowView: View {
                                 .foregroundColor(.blue)
                             Text("\(workout.exercises.count) exercises")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(themeManager.secondaryTextColor)
                         }
 
                         HStack(spacing: 4) {
@@ -379,7 +380,7 @@ struct RecentWorkoutRowView: View {
                                 .foregroundColor(.green)
                             Text(formatDuration(workout.duration))
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(themeManager.secondaryTextColor)
                         }
 
                         HStack(spacing: 4) {
@@ -388,26 +389,26 @@ struct RecentWorkoutRowView: View {
                                 .foregroundColor(.orange)
                             Text("\(Int(getTotalVolume(workout))) lbs")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(themeManager.secondaryTextColor)
                         }
                     }
 
                     if !workout.exercises.isEmpty {
                         Text(workout.exercises.map { $0.name }.joined(separator: ", "))
                             .font(.caption2)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(themeManager.secondaryTextColor)
                             .lineLimit(2)
                     }
                 }
 
                 Image(systemName: "chevron.right")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(themeManager.secondaryTextColor)
             }
             .padding()
-            .background(Color.white)
+            .background(themeManager.cardBackgroundColor)
             .cornerRadius(12)
-            .shadow(color: .gray.opacity(0.2), radius: 2, x: 0, y: 1)
+            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
         }
         .buttonStyle(PlainButtonStyle())
     }
