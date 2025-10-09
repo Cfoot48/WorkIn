@@ -3,6 +3,7 @@ import SwiftUI
 struct OnboardingView: View {
     @ObservedObject var profileStore: UserProfileStore
     @Binding var isCompleted: Bool
+    @EnvironmentObject var themeManager: ThemeManager
 
     @State private var currentPage = 0
     @State private var displayName = ""
@@ -17,17 +18,42 @@ struct OnboardingView: View {
     @State private var proteinGoal = "150"
 
     var body: some View {
-        VStack {
-            // Progress indicator
-            HStack(spacing: 8) {
-                ForEach(0..<7) { index in
-                    Rectangle()
-                        .fill(index <= currentPage ? Color.blue : Color.gray.opacity(0.3))
-                        .frame(height: 4)
-                        .cornerRadius(2)
+        ZStack {
+            // Gradient background
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    themeManager.backgroundColor,
+                    Color.cyan.opacity(0.05),
+                    Color(red: 0.3, green: 0.5, blue: 1.0).opacity(0.08),
+                    themeManager.backgroundColor
+                ]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            VStack {
+                // Progress indicator
+                HStack(spacing: 8) {
+                    ForEach(0..<7) { index in
+                        Capsule()
+                            .fill(index <= currentPage ?
+                                LinearGradient(
+                                    gradient: Gradient(colors: [.cyan, Color(red: 0.3, green: 0.5, blue: 1.0)]),
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                ) :
+                                LinearGradient(
+                                    gradient: Gradient(colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.3)]),
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(height: 6)
+                            .shadow(color: index <= currentPage ? Color.cyan.opacity(0.3) : .clear, radius: 4)
+                    }
                 }
-            }
-            .padding()
+                .padding()
 
             TabView(selection: $currentPage) {
                 WelcomePage()
@@ -35,6 +61,13 @@ struct OnboardingView: View {
 
                 DisplayNamePage(displayName: $displayName)
                     .tag(1)
+                    .onAppear {
+                        // Don't dismiss keyboard when appearing on this page
+                    }
+                    .onDisappear {
+                        // Dismiss keyboard when leaving this page
+                        hideKeyboard()
+                    }
 
                 BodyStatsPage(
                     height: $height,
@@ -75,32 +108,61 @@ struct OnboardingView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .animation(.easeInOut, value: currentPage)
 
-            // Navigation buttons
-            HStack {
-                if currentPage > 0 {
-                    Button("Back") {
-                        withAnimation {
-                            currentPage -= 1
+                // Navigation buttons
+                HStack(spacing: 16) {
+                    if currentPage > 0 {
+                        Button(action: {
+                            withAnimation {
+                                currentPage -= 1
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "chevron.left")
+                                Text("Back")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(themeManager.secondaryBackgroundColor)
+                            .foregroundColor(themeManager.primaryTextColor)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.cyan.opacity(0.3), lineWidth: 1)
+                            )
                         }
                     }
-                    .buttonStyle(.bordered)
-                }
 
-                Spacer()
-
-                Button(currentPage < 6 ? "Next" : "Complete") {
-                    if currentPage < 6 {
-                        withAnimation {
-                            currentPage += 1
+                    Button(action: {
+                        if currentPage < 6 {
+                            withAnimation {
+                                currentPage += 1
+                            }
+                        } else {
+                            completeOnboarding()
                         }
-                    } else {
-                        completeOnboarding()
+                    }) {
+                        HStack {
+                            Text(currentPage < 6 ? "Next" : "Complete")
+                            Image(systemName: currentPage < 6 ? "chevron.right" : "checkmark")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(
+                            LinearGradient(
+                                gradient: Gradient(colors: [.cyan, Color(red: 0.3, green: 0.5, blue: 1.0)]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                        .shadow(color: Color.cyan.opacity(0.4), radius: 8, x: 0, y: 4)
                     }
+                    .disabled(!canProceed)
+                    .opacity(canProceed ? 1.0 : 0.5)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(!canProceed)
+                .padding()
             }
-            .padding()
         }
     }
 
@@ -115,6 +177,10 @@ struct OnboardingView: View {
         case 6: return true
         default: return false
         }
+    }
+
+    private func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
     private func completeOnboarding() {
@@ -237,23 +303,58 @@ enum WeightChangeRate: String, CaseIterable, Codable {
 // MARK: - Onboarding Pages
 
 struct WelcomePage: View {
+    @EnvironmentObject var themeManager: ThemeManager
+
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 32) {
             Spacer()
 
-            Image(systemName: "figure.strengthtraining.traditional")
-                .font(.system(size: 100))
-                .foregroundColor(.blue)
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [Color.cyan.opacity(0.2), Color(red: 0.3, green: 0.5, blue: 1.0).opacity(0.2)]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 200, height: 200)
+                    .blur(radius: 30)
 
-            Text("Welcome to WorkIn")
-                .font(.largeTitle)
-                .fontWeight(.bold)
+                Image(systemName: "figure.strengthtraining.traditional")
+                    .font(.system(size: 100))
+                    .foregroundStyle(
+                        LinearGradient(
+                            gradient: Gradient(colors: [.cyan, Color(red: 0.3, green: 0.5, blue: 1.0)]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .shadow(color: .cyan.opacity(0.3), radius: 10)
+            }
 
-            Text("Let's personalize your fitness journey")
-                .font(.title3)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
+            VStack(spacing: 16) {
+                Text("Welcome to")
+                    .font(.title2)
+                    .foregroundColor(themeManager.secondaryTextColor)
+
+                Text("WORKIN")
+                    .font(.system(size: 48, weight: .heavy, design: .default))
+                    .foregroundStyle(
+                        LinearGradient(
+                            gradient: Gradient(colors: [.cyan, Color(red: 0.3, green: 0.5, blue: 1.0)]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .shadow(color: .cyan.opacity(0.3), radius: 8)
+
+                Text("Let's personalize your fitness journey")
+                    .font(.title3)
+                    .foregroundColor(themeManager.secondaryTextColor)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
 
             Spacer()
         }
@@ -555,7 +656,13 @@ struct NutritionGoalsPage: View {
                     HStack {
                         Text("\(calculatedCalories)")
                             .font(.system(size: 48, weight: .bold))
-                            .foregroundColor(.blue)
+                            .foregroundStyle(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [.cyan, Color(red: 0.3, green: 0.5, blue: 1.0)]),
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
                         Text("cal/day")
                             .font(.headline)
                             .foregroundColor(.secondary)
@@ -566,8 +673,18 @@ struct NutritionGoalsPage: View {
                         .foregroundColor(.secondary)
                 }
                 .padding()
-                .background(Color.blue.opacity(0.1))
+                .background(
+                    LinearGradient(
+                        gradient: Gradient(colors: [Color.cyan.opacity(0.1), Color(red: 0.3, green: 0.5, blue: 1.0).opacity(0.1)]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.cyan.opacity(0.2), lineWidth: 1)
+                )
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Daily Protein Goal (g)")
@@ -596,79 +713,126 @@ struct NutritionGoalsPage: View {
 }
 
 struct RatingAndContactPage: View {
+    @EnvironmentObject var themeManager: ThemeManager
+
     var body: some View {
-        VStack(spacing: 32) {
-            Spacer()
+        ScrollView {
+            VStack(spacing: 32) {
+                // Star icon with gradient
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [Color.yellow.opacity(0.3), Color.orange.opacity(0.2)]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 150, height: 150)
+                        .blur(radius: 30)
 
-            // Star icon
-            Image(systemName: "star.fill")
-                .font(.system(size: 80))
-                .foregroundColor(.yellow)
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 70))
+                        .foregroundColor(.yellow)
+                        .shadow(color: .yellow.opacity(0.5), radius: 10)
+                }
+                .padding(.top, 20)
 
-            // Title
-            Text("Enjoying WorkIn?")
-                .font(.title)
-                .fontWeight(.bold)
-                .multilineTextAlignment(.center)
-
-            // Rating section
-            VStack(spacing: 16) {
-                Text("We'd love your feedback!")
-                    .font(.title3)
+                // Title
+                Text("Like the App?")
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(themeManager.primaryTextColor)
                     .multilineTextAlignment(.center)
 
-                Text("Please rate us 5 stars on the App Store")
-                    .font(.body)
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
+                // Rating section
+                VStack(spacing: 16) {
+                    Text("We'd love your feedback!")
+                        .font(.title3)
+                        .foregroundColor(themeManager.primaryTextColor)
+                        .multilineTextAlignment(.center)
 
-                // Star rating visual
-                HStack(spacing: 8) {
-                    ForEach(0..<5) { _ in
-                        Image(systemName: "star.fill")
-                            .font(.title2)
-                            .foregroundColor(.yellow)
+                    Text("Please rate us 5 stars on the App Store")
+                        .font(.body)
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(themeManager.secondaryTextColor)
+
+                    // Star rating visual
+                    HStack(spacing: 8) {
+                        ForEach(0..<5) { _ in
+                            Image(systemName: "star.fill")
+                                .font(.title2)
+                                .foregroundColor(.yellow)
+                                .shadow(color: .yellow.opacity(0.3), radius: 4)
+                        }
+                    }
+                    .padding(.top, 8)
+                }
+                .padding()
+                .background(
+                    LinearGradient(
+                        gradient: Gradient(colors: [Color.yellow.opacity(0.1), Color.orange.opacity(0.05)]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .cornerRadius(16)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.yellow.opacity(0.3), lineWidth: 1)
+                )
+                .padding(.horizontal)
+
+                // Contact section
+                VStack(spacing: 12) {
+                    Text("Questions or Suggestions?")
+                        .font(.headline)
+                        .foregroundColor(themeManager.primaryTextColor)
+
+                    VStack(spacing: 8) {
+                        Text("Message us at:")
+                            .font(.subheadline)
+                            .foregroundColor(themeManager.secondaryTextColor)
+
+                        Button(action: {
+                            if let url = URL(string: "mailto:TheWorkInApp@gmail.com") {
+                                UIApplication.shared.open(url)
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "envelope.fill")
+                                Text("TheWorkInApp@gmail.com")
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundStyle(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [.cyan, Color(red: 0.3, green: 0.5, blue: 1.0)]),
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                        }
                     }
                 }
-                .padding(.top, 8)
+                .padding()
+                .background(
+                    LinearGradient(
+                        gradient: Gradient(colors: [Color.cyan.opacity(0.1), Color(red: 0.3, green: 0.5, blue: 1.0).opacity(0.1)]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .cornerRadius(16)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.cyan.opacity(0.2), lineWidth: 1)
+                )
+                .padding(.horizontal)
+
+                Spacer(minLength: 40)
             }
             .padding()
-            .background(Color.yellow.opacity(0.1))
-            .cornerRadius(16)
-            .padding(.horizontal)
-
-            // Contact section
-            VStack(spacing: 12) {
-                Text("Questions or Suggestions?")
-                    .font(.headline)
-
-                VStack(spacing: 8) {
-                    Text("Message us at:")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-
-                    Button(action: {
-                        if let url = URL(string: "mailto:TheWorkInApp@gmail.com") {
-                            UIApplication.shared.open(url)
-                        }
-                    }) {
-                        HStack {
-                            Image(systemName: "envelope.fill")
-                            Text("TheWorkInApp@gmail.com")
-                                .fontWeight(.semibold)
-                        }
-                        .foregroundColor(.blue)
-                    }
-                }
-            }
-            .padding()
-            .background(Color.blue.opacity(0.1))
-            .cornerRadius(16)
-            .padding(.horizontal)
-
-            Spacer()
         }
-        .padding()
     }
 }
 

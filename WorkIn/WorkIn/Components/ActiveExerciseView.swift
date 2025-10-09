@@ -20,6 +20,7 @@ struct ActiveExerciseView: View {
     @State private var restTimerActive = false
     @State private var restTimeRemaining: Double = 0
     @State private var restTimer: Timer?
+    @State private var showTrackingHelp = false
 
     let onUpdateSets: ([ExerciseSet]) -> Void
     let onDeleteExercise: (() -> Void)?
@@ -36,8 +37,27 @@ struct ActiveExerciseView: View {
 
     // Calculate current rank for this exercise
     private func getCurrentRank() -> StrengthRank? {
-        guard let maxSet = sets.max(by: { $0.weight < $1.weight }), bodyWeight > 0 else { return nil }
-        return StrengthStandards.getRank(exerciseName: exercise.name, weight: maxSet.weight, bodyWeight: bodyWeight)
+        // Use all valid sets with weight and reps (same as workout rank calculation)
+        let validSets = sets.filter { $0.reps > 0 && $0.weight > 0 }
+        guard !validSets.isEmpty, bodyWeight > 0 else { return nil }
+
+        // Calculate one-rep max for each valid set and find the highest (same logic as workout rank calculation)
+        let oneRepMaxes = validSets.compactMap { set -> Double? in
+            // Brzycki formula: 1RM = weight * (36 / (37 - reps))
+            if set.reps == 1 {
+                return set.weight
+            } else if set.reps >= 36 {
+                // For very high reps, use a multiplier approach
+                let baseRatio = 18.0
+                let extraReps = Double(set.reps) - 35.0
+                return set.weight * (baseRatio + extraReps * 0.3)
+            } else {
+                return set.weight * (36.0 / (37.0 - Double(set.reps)))
+            }
+        }
+
+        guard let maxOneRepMax = oneRepMaxes.max(), maxOneRepMax > 0 else { return nil }
+        return StrengthStandards.getRank(exerciseName: exercise.name, weight: maxOneRepMax, bodyWeight: bodyWeight, equipment: exercise.equipment)
     }
 
     // Determine if this is a time-based exercise
@@ -86,14 +106,63 @@ struct ActiveExerciseView: View {
                 sets = exercise.sets
             }
         }
+        .alert("How to Track", isPresented: $showTrackingHelp) {
+            Button("Got it!") { }
+        } message: {
+            Text(getTrackingInstructions())
+        }
+    }
+
+    private func getTrackingInstructions() -> String {
+        let exerciseName = exercise.name.lowercased()
+        let equipmentType = exercise.equipment.lowercased()
+
+        if isTimeBasedExercise() {
+            return "This is a time-based exercise. Track the duration you hold the position in seconds, along with any additional weight used."
+        }
+
+        // Use equipment type as primary source, fall back to exercise name
+        if equipmentType == "dumbbell" || exerciseName.contains("dumbbell") {
+            return "For dumbbell exercises, enter the weight of ONE dumbbell (not both combined). For example, if using 50 lb dumbbells, enter 50 lbs.\n\nThe system automatically doubles this weight for ranking since you're lifting two dumbbells. Your rank is calculated based on the total weight relative to your body weight."
+        }
+
+        if equipmentType == "barbell" || exerciseName.contains("barbell") || exerciseName.contains("bench press") || exerciseName.contains("squat") || exerciseName.contains("deadlift") {
+            return "For barbell exercises, enter the total weight including the bar. For example, a 45 lb bar with two 45 lb plates = 135 lbs total.\n\nYour rank is calculated based on the heaviest weight lifted relative to your body weight."
+        }
+
+        if equipmentType == "cable" || exerciseName.contains("cable") {
+            return "For cable exercises, enter the weight shown on the machine stack. This is the actual resistance you're pulling.\n\nYour rank is calculated based on the heaviest weight lifted relative to your body weight."
+        }
+
+        if equipmentType == "machine" || exerciseName.contains("machine") || exerciseName.contains("press machine") || exerciseName.contains("leg press") ||
+           exerciseName.contains("leg extension") || exerciseName.contains("leg curl") || exerciseName.contains("hack squat") {
+            return "For machine exercises, enter the total weight on the machine. Some machines have pre-loaded weights - enter the full amount you're lifting.\n\nYour rank is calculated based on the heaviest weight lifted relative to your body weight."
+        }
+
+        if equipmentType == "bodyweight" || isBodyweightExercise() {
+            return "For bodyweight exercises, enter any additional weight you're using. If doing the exercise with just your bodyweight, enter 0 or use the BW button to enter your current weight.\n\nYour rank is calculated including your bodyweight plus any added weight."
+        }
+
+        // Default for other exercises
+        return "Track the number of reps you complete and the weight used. The rank is calculated based on the heaviest weight you lift relative to your body weight."
     }
 
     private var exerciseHeaderView: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(exercise.name)
-                    .font(.headline)
-                    .foregroundColor(.primary)
+                HStack(spacing: 6) {
+                    Text(exercise.name)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+
+                    Button(action: {
+                        showTrackingHelp = true
+                    }) {
+                        Image(systemName: "questionmark.circle")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                    }
+                }
                 Text(exercise.muscleGroups.joined(separator: ", "))
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -129,6 +198,11 @@ struct ActiveExerciseView: View {
         VStack(spacing: 16) {
             if !sets.isEmpty {
                 existingSetsView
+            }
+
+            // Rest timer appears between existing sets and add new set section
+            if restTimerActive {
+                restTimerView
             }
 
             addNewSetView
@@ -196,11 +270,11 @@ struct ActiveExerciseView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-                    HStack(spacing: 4) {
+                    HStack(spacing: 8) {
                         TextField("135", text: $newWeight)
                             .keyboardType(.decimalPad)
                             .textFieldStyle(.roundedBorder)
-                            .frame(width: 80)
+                            .frame(width: isBodyweightExercise() ? 70 : 80)
 
                         if isBodyweightExercise() {
                             Button {
@@ -212,7 +286,7 @@ struct ActiveExerciseView: View {
                             }
                             .buttonStyle(.borderedProminent)
                             .controlSize(.small)
-                            .frame(width: 40, height: 30)
+                            .frame(width: 45, height: 30)
                         }
                     }
                 }
@@ -226,7 +300,17 @@ struct ActiveExerciseView: View {
                 .disabled(isTimeBasedExercise() ? (newDuration.isEmpty || newWeight.isEmpty) : (newReps.isEmpty || newWeight.isEmpty))
             }
 
-            restTimerView
+            // Show rest time selector only when timer is not active
+            if !restTimerActive {
+                HStack {
+                    Text("Rest Time: \(Int(restTime))s")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                Slider(value: $restTime, in: 30...300, step: 15)
+                    .accentColor(.cyan)
+            }
         }
         .padding()
         .background(Color.gray.opacity(0.05))
@@ -246,61 +330,47 @@ struct ActiveExerciseView: View {
     }
 
     private var restTimerView: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if restTimerActive {
-                // Active countdown timer
-                VStack(spacing: 8) {
-                    HStack {
-                        Text("Rest Timer")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Button("Skip") {
-                            stopRestTimer()
-                        }
-                        .font(.caption)
-                        .buttonStyle(.bordered)
-                        .controlSize(.mini)
-                    }
-
-                    HStack {
-                        Text("\(Int(restTimeRemaining))s")
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundColor(restTimeRemaining <= 10 ? .red : .blue)
-                            .frame(maxWidth: .infinity)
-                    }
-
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.3))
-                                .frame(height: 8)
-                                .cornerRadius(4)
-
-                            Rectangle()
-                                .fill(restTimeRemaining <= 10 ? Color.red : Color.blue)
-                                .frame(width: geometry.size.width * CGFloat(restTimeRemaining / restTime), height: 8)
-                                .cornerRadius(4)
-                        }
-                    }
-                    .frame(height: 8)
+        // Active countdown timer
+        VStack(spacing: 8) {
+            HStack {
+                Text("Rest Timer")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Button("Skip") {
+                    stopRestTimer()
                 }
-                .padding()
-                .background(restTimeRemaining <= 10 ? Color.red.opacity(0.1) : Color.blue.opacity(0.1))
-                .cornerRadius(8)
-            } else {
-                // Rest time selector
-                HStack {
-                    Text("Rest Time: \(Int(restTime))s")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                }
-                Slider(value: $restTime, in: 30...300, step: 15)
-                    .accentColor(.blue)
+                .font(.caption)
+                .buttonStyle(.bordered)
+                .controlSize(.mini)
             }
+
+            HStack {
+                Text("\(Int(restTimeRemaining))s")
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(restTimeRemaining <= 10 ? .red : .blue)
+                    .frame(maxWidth: .infinity)
+            }
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(height: 8)
+                        .cornerRadius(4)
+
+                    Rectangle()
+                        .fill(restTimeRemaining <= 10 ? Color.red : Color.blue)
+                        .frame(width: geometry.size.width * CGFloat(restTimeRemaining / restTime), height: 8)
+                        .cornerRadius(4)
+                }
+            }
+            .frame(height: 8)
         }
+        .padding()
+        .background(restTimeRemaining <= 10 ? Color.red.opacity(0.1) : Color.blue.opacity(0.1))
+        .cornerRadius(8)
     }
 
     private func addSet() {

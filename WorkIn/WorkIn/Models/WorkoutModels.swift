@@ -351,14 +351,45 @@ enum StrengthRank: String, CaseIterable, Codable {
         case .superman: return "red"
         }
     }
+
+    var glowColor: Color {
+        switch self {
+        case .bronze: return Color(red: 0.6, green: 0.4, blue: 0.2) // Bronze brown
+        case .silver: return Color(red: 0.75, green: 0.75, blue: 0.75) // Silver gray
+        case .gold: return Color(red: 1.0, green: 0.84, blue: 0.0) // Gold yellow
+        case .platinum: return Color(red: 0.4, green: 0.8, blue: 0.8) // Platinum teal/cyan
+        case .diamond: return Color(red: 0.4, green: 0.7, blue: 1.0) // Diamond blue
+        case .arnold: return Color(red: 0.7, green: 0.4, blue: 1.0) // Arnold purple
+        case .hulk: return Color(red: 0.3, green: 0.9, blue: 0.3) // Hulk green
+        case .superman: return Color(red: 1.0, green: 0.3, blue: 0.3) // Superman red
+        }
+    }
+
+    // Glow intensity increases with rank (0.3 to 1.0)
+    var glowIntensity: Double {
+        switch self {
+        case .bronze: return 0.3
+        case .silver: return 0.4
+        case .gold: return 0.5
+        case .platinum: return 0.6
+        case .diamond: return 0.7
+        case .arnold: return 0.8
+        case .hulk: return 0.9
+        case .superman: return 1.0
+        }
+    }
 }
+
+import SwiftUI
 
 struct StrengthStandards {
     // Bodyweight multipliers for different exercises (based on powerlifting standards)
     // These are approximate standards used in strength training communities
 
-    static func getRank(exerciseName: String, weight: Double, bodyWeight: Double) -> StrengthRank {
-        let ratio = weight / bodyWeight
+    static func getRank(exerciseName: String, weight: Double, bodyWeight: Double, equipment: String = "") -> StrengthRank {
+        // Apply 2x multiplier for dumbbell exercises (since we track one dumbbell, but you're lifting two)
+        let effectiveWeight = equipment.lowercased() == "dumbbell" ? weight * 2.0 : weight
+        let ratio = effectiveWeight / bodyWeight
 
         // Normalize exercise name for matching
         let normalizedName = exerciseName.lowercased()
@@ -598,7 +629,8 @@ extension Workout {
             let rank = StrengthStandards.getRank(
                 exerciseName: exercise.name,
                 weight: maxOneRepMax,
-                bodyWeight: effectiveBodyWeight
+                bodyWeight: effectiveBodyWeight,
+                equipment: exercise.equipment
             )
 
             print("🏋️ Exercise '\(exercise.name)': 1RM \(String(format: "%.1f", maxOneRepMax)) lbs, ratio \(String(format: "%.2f", ratio)), rank: \(rank.rawValue) \(rank.symbol)")

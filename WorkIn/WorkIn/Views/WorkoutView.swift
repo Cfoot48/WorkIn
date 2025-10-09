@@ -56,10 +56,11 @@ struct WorkoutView: View {
                 )
             }
             .sheet(isPresented: $showingAIWorkoutGenerator) {
-                AIWorkoutGeneratorView()
+                WorkoutGeneratorView()
                     .environmentObject(templateStore)
                     .environmentObject(profileStore)
                     .environmentObject(workoutStore)
+                    .environmentObject(themeManager)
             }
         }
     }
@@ -137,6 +138,9 @@ struct WorkoutRowView: View {
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 60, height: 60)
+                        .shadow(color: rank.glowColor.opacity(0.8 * rank.glowIntensity), radius: 15 * rank.glowIntensity, x: 0, y: 0)
+                        .shadow(color: rank.glowColor.opacity(0.6 * rank.glowIntensity), radius: 8 * rank.glowIntensity, x: 0, y: 0)
+                        .shadow(color: rank.glowColor.opacity(0.4 * rank.glowIntensity), radius: 4 * rank.glowIntensity, x: 0, y: 0)
                         .padding(.horizontal, 8)
                         .onAppear {
                             print("🏋️ WorkoutRowView: Displaying rank \(rank.badgeImageName) for workout '\(workout.name)' (bodyweight: \(bodyWeight) lbs)")
@@ -581,14 +585,16 @@ struct TemplateSelectionView: View {
 
     var body: some View {
         NavigationView {
-            List(WorkoutTemplateDatabase.templates) { template in
-                Button(action: {
-                    workoutStore.startWorkoutFromTemplate(template)
-                    dismiss()
-                }) {
-                    WorkoutTemplateRowView(template: template)
+            List {
+                ForEach(WorkoutTemplateDatabase.templates) { template in
+                    Button(action: {
+                        workoutStore.startWorkoutFromTemplate(template)
+                        dismiss()
+                    }) {
+                        WorkoutTemplateRowView(template: template)
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
             }
             .navigationTitle("Workout Templates")
             .navigationBarTitleDisplayMode(.large)
@@ -654,6 +660,9 @@ struct WorkoutCompletionSummaryView: View {
                                     .resizable()
                                     .aspectRatio(contentMode: .fit)
                                     .frame(width: 80, height: 80)
+                                    .shadow(color: rank.glowColor.opacity(0.9 * rank.glowIntensity), radius: 20 * rank.glowIntensity, x: 0, y: 0)
+                                    .shadow(color: rank.glowColor.opacity(0.7 * rank.glowIntensity), radius: 12 * rank.glowIntensity, x: 0, y: 0)
+                                    .shadow(color: rank.glowColor.opacity(0.5 * rank.glowIntensity), radius: 6 * rank.glowIntensity, x: 0, y: 0)
 
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(rank.rawValue)
@@ -818,8 +827,27 @@ struct ExerciseSummaryCard: View {
     @EnvironmentObject var themeManager: ThemeManager
 
     private var exerciseRank: StrengthRank? {
-        guard let maxSet = exercise.sets.max(by: { $0.weight < $1.weight }), bodyWeight > 0 else { return nil }
-        return StrengthStandards.getRank(exerciseName: exercise.name, weight: maxSet.weight, bodyWeight: bodyWeight)
+        guard bodyWeight > 0 else { return nil }
+
+        // Calculate one-rep max for each valid set and find the highest (same logic as workout ranking)
+        let oneRepMaxes = exercise.sets.compactMap { set -> Double? in
+            guard set.reps > 0 && set.weight > 0 else { return nil }
+            // Brzycki formula: 1RM = weight * (36 / (37 - reps))
+            if set.reps == 1 {
+                return set.weight
+            } else if set.reps >= 36 {
+                // For very high reps, use a multiplier approach to avoid infinite values
+                let baseRatio = 18.0  // Approximate ratio at 35 reps
+                let extraReps = Double(set.reps) - 35.0
+                return set.weight * (baseRatio + extraReps * 0.3)  // Add 0.3x per rep beyond 35
+            } else {
+                return set.weight * (36.0 / (37.0 - Double(set.reps)))
+            }
+        }
+
+        guard let maxOneRepMax = oneRepMaxes.max(), maxOneRepMax > 0 else { return nil }
+
+        return StrengthStandards.getRank(exerciseName: exercise.name, weight: maxOneRepMax, bodyWeight: bodyWeight, equipment: exercise.equipment)
     }
 
     var body: some View {
@@ -844,6 +872,9 @@ struct ExerciseSummaryCard: View {
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 30, height: 30)
+                        .shadow(color: rank.glowColor.opacity(0.8 * rank.glowIntensity), radius: 10 * rank.glowIntensity, x: 0, y: 0)
+                        .shadow(color: rank.glowColor.opacity(0.6 * rank.glowIntensity), radius: 6 * rank.glowIntensity, x: 0, y: 0)
+                        .shadow(color: rank.glowColor.opacity(0.4 * rank.glowIntensity), radius: 3 * rank.glowIntensity, x: 0, y: 0)
                 }
 
                 Text("\(exercise.sets.count) sets")
