@@ -263,6 +263,7 @@ struct WorkoutTemplateRowView: View {
         case "Legs": return .green
         case "Core": return .orange
         case "Full Body": return .purple
+        case "AI Generated": return .purple
         default: return .gray
         }
     }

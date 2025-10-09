@@ -7,6 +7,7 @@ struct ProfileView: View {
     @EnvironmentObject var nutritionStore: NutritionStore
     @State private var showingSettings = false
     @State private var showingGoals = false
+    @State private var showingSavedRecipes = false
 
     var body: some View {
         NavigationView {
@@ -25,18 +26,22 @@ struct ProfileView: View {
                         ProfileMenuView(
                             authManager: authManager,
                             showingSettings: $showingSettings,
-                            showingGoals: $showingGoals
+                            showingGoals: $showingGoals,
+                            showingSavedRecipes: $showingSavedRecipes
                         )
                     }
                     .padding()
                 }
                 .background(themeManager.backgroundColor)
-                .navigationTitle("Profile")
+                .navigationBarHidden(true)
                 .sheet(isPresented: $showingSettings) {
                     SettingsView()
                 }
                 .sheet(isPresented: $showingGoals) {
                     GoalsView(profileStore: profileStore, nutritionStore: nutritionStore)
+                }
+                .sheet(isPresented: $showingSavedRecipes) {
+                    SavedRecipesView()
                 }
             }
         }
@@ -165,6 +170,7 @@ struct ProfileMenuView: View {
     @ObservedObject var authManager: AuthenticationManager
     @Binding var showingSettings: Bool
     @Binding var showingGoals: Bool
+    @Binding var showingSavedRecipes: Bool
 
     var body: some View {
         VStack(spacing: 12) {
@@ -172,6 +178,12 @@ struct ProfileMenuView: View {
                 icon: "target",
                 title: "Goals & Targets",
                 action: { showingGoals = true }
+            )
+
+            ProfileMenuItem(
+                icon: "book.fill",
+                title: "Saved Recipes",
+                action: { showingSavedRecipes = true }
             )
 
             ProfileMenuItem(
@@ -460,6 +472,312 @@ struct GoalsView: View {
 
         // Sync nutrition goals with NutritionStore
         nutritionStore.syncNutritionGoalsFromProfile()
+    }
+}
+
+// MARK: - Saved Recipes View
+struct SavedRecipesView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var templateStore: TemplateStore
+    @EnvironmentObject var nutritionStore: NutritionStore
+    @EnvironmentObject var themeManager: ThemeManager
+    @State private var selectedRecipe: MealTemplate?
+
+    var body: some View {
+        NavigationView {
+            VStack {
+                if templateStore.mealTemplates.isEmpty {
+                    VStack(spacing: 20) {
+                        Image(systemName: "book.closed.fill")
+                            .font(.system(size: 60))
+                            .foregroundColor(themeManager.secondaryTextColor)
+
+                        Text("No Saved Recipes")
+                            .font(.headline)
+                            .foregroundColor(themeManager.primaryTextColor)
+
+                        Text("Generate recipes in the AI Assistant tab to save them here")
+                            .font(.subheadline)
+                            .foregroundColor(themeManager.secondaryTextColor)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                    }
+                    .frame(maxHeight: .infinity)
+                } else {
+                    List {
+                        ForEach(templateStore.mealTemplates) { template in
+                            SavedRecipeRow(template: template) {
+                                selectedRecipe = template
+                            }
+                        }
+                        .onDelete(perform: deleteRecipes)
+                    }
+                    .listStyle(PlainListStyle())
+                }
+            }
+            .background(themeManager.backgroundColor)
+            .navigationTitle("Saved Recipes")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+            .sheet(item: $selectedRecipe) { recipe in
+                RecipeDetailLogView(recipe: recipe)
+            }
+        }
+    }
+
+    private func deleteRecipes(at offsets: IndexSet) {
+        for index in offsets {
+            templateStore.deleteMealTemplate(templateStore.mealTemplates[index])
+        }
+    }
+}
+
+// MARK: - Saved Recipe Row
+struct SavedRecipeRow: View {
+    let template: MealTemplate
+    let onTap: () -> Void
+    @EnvironmentObject var themeManager: ThemeManager
+
+    var totalCalories: Double {
+        template.foods.reduce(0) { $0 + $1.calories }
+    }
+
+    var totalProtein: Double {
+        template.foods.reduce(0) { $0 + $1.protein }
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(template.name)
+                        .font(.headline)
+                        .foregroundColor(themeManager.primaryTextColor)
+
+                    HStack(spacing: 16) {
+                        Label("\(Int(totalCalories)) cal", systemImage: "flame.fill")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                        Label("\(Int(totalProtein))g protein", systemImage: "heart.fill")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(themeManager.secondaryTextColor)
+            }
+            .padding(.vertical, 8)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Recipe Detail & Log View
+struct RecipeDetailLogView: View {
+    @Environment(\.dismiss) private var dismiss
+    let recipe: MealTemplate
+    @EnvironmentObject var nutritionStore: NutritionStore
+    @EnvironmentObject var themeManager: ThemeManager
+    @State private var selectedMealType: MealType = .breakfast
+    @State private var showingConfirmation = false
+
+    var totalCalories: Double {
+        recipe.foods.reduce(0) { $0 + $1.calories }
+    }
+
+    var totalProtein: Double {
+        recipe.foods.reduce(0) { $0 + $1.protein }
+    }
+
+    var totalCarbs: Double {
+        recipe.foods.reduce(0) { $0 + $1.carbs }
+    }
+
+    var totalFat: Double {
+        recipe.foods.reduce(0) { $0 + $1.fat }
+    }
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Recipe Header
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(recipe.name)
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(themeManager.primaryTextColor)
+
+                        if let servings = recipe.servings {
+                            Text("\(servings) serving\(servings > 1 ? "s" : "")")
+                                .font(.subheadline)
+                                .foregroundColor(themeManager.secondaryTextColor)
+                        }
+
+                        // Nutrition Summary
+                        HStack(spacing: 20) {
+                            NutritionInfoBadge(value: Int(totalCalories), label: "cal", color: .orange)
+                            NutritionInfoBadge(value: Int(totalProtein), label: "P", color: .red)
+                            NutritionInfoBadge(value: Int(totalCarbs), label: "C", color: .blue)
+                            NutritionInfoBadge(value: Int(totalFat), label: "F", color: .green)
+                        }
+                    }
+                    .padding()
+                    .background(themeManager.secondaryBackgroundColor)
+                    .cornerRadius(12)
+
+                    // Ingredients
+                    if let ingredients = recipe.ingredients, !ingredients.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Ingredients")
+                                .font(.headline)
+                                .foregroundColor(themeManager.primaryTextColor)
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(ingredients, id: \.self) { ingredient in
+                                    HStack(alignment: .top, spacing: 8) {
+                                        Text("•")
+                                            .foregroundColor(themeManager.secondaryTextColor)
+                                        Text(ingredient)
+                                            .font(.subheadline)
+                                            .foregroundColor(themeManager.secondaryTextColor)
+                                    }
+                                }
+                            }
+                        }
+                        .padding()
+                        .background(themeManager.secondaryBackgroundColor)
+                        .cornerRadius(12)
+                    }
+
+                    // Instructions
+                    if let instructions = recipe.instructions, !instructions.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Instructions")
+                                .font(.headline)
+                                .foregroundColor(themeManager.primaryTextColor)
+
+                            VStack(alignment: .leading, spacing: 10) {
+                                ForEach(Array(instructions.enumerated()), id: \.offset) { index, instruction in
+                                    HStack(alignment: .top, spacing: 8) {
+                                        Text("\(index + 1).")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                            .foregroundColor(themeManager.accentColor)
+                                        Text(instruction)
+                                            .font(.subheadline)
+                                            .foregroundColor(themeManager.secondaryTextColor)
+                                    }
+                                }
+                            }
+                        }
+                        .padding()
+                        .background(themeManager.secondaryBackgroundColor)
+                        .cornerRadius(12)
+                    }
+
+                    // Meal Type Selection
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Select Meal Type")
+                            .font(.headline)
+                            .foregroundColor(themeManager.primaryTextColor)
+
+                        Picker("Meal Type", selection: $selectedMealType) {
+                            ForEach(MealType.allCases, id: \.self) { mealType in
+                                Text(mealType.rawValue).tag(mealType)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    .padding()
+                    .background(themeManager.secondaryBackgroundColor)
+                    .cornerRadius(12)
+
+                    // Log Button
+                    Button(action: { showingConfirmation = true }) {
+                        HStack {
+                            Image(systemName: "plus.circle.fill")
+                            Text("Log to Nutrition Tracker")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(
+                            LinearGradient(
+                                colors: [Color.cyan, Color(red: 0.3, green: 0.5, blue: 1.0)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(12)
+                        .shadow(color: .cyan.opacity(0.3), radius: 8, x: 0, y: 4)
+                    }
+                    .padding(.horizontal)
+                }
+                .padding()
+            }
+            .background(themeManager.backgroundColor)
+            .navigationTitle("Recipe Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                }
+            }
+            .alert("Log Recipe", isPresented: $showingConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Log") {
+                    logRecipe()
+                    dismiss()
+                }
+            } message: {
+                Text("Add '\(recipe.name)' to your \(selectedMealType.rawValue) nutrition log?")
+            }
+        }
+    }
+
+    private func logRecipe() {
+        print("📝 PROFILE VIEW: Logging recipe '\(recipe.name)' with selected meal type: \(selectedMealType.rawValue)")
+        for food in recipe.foods {
+            var modifiedFood = food
+            modifiedFood.mealType = selectedMealType
+            print("📝 PROFILE VIEW: Setting food '\(modifiedFood.name)' mealType to \(modifiedFood.mealType.rawValue)")
+            nutritionStore.addFoodEntry(modifiedFood)
+        }
+        print("📝 PROFILE VIEW: Finished logging recipe '\(recipe.name)'")
+    }
+}
+
+// MARK: - Nutrition Info Badge
+struct NutritionInfoBadge: View {
+    let value: Int
+    let label: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text("\(value)")
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundColor(color)
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 

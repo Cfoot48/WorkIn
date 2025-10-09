@@ -7,6 +7,9 @@ struct ScannedFoodDetailView: View {
 
     @State private var servings: Double = 1.0
     @State private var servingText: String = "1"
+    @State private var grams: Double = 100
+    @State private var gramsText: String = "100"
+    @State private var logByServings: Bool = true
 
     var body: some View {
         NavigationView {
@@ -58,82 +61,144 @@ struct ScannedFoodDetailView: View {
                     .background(Color.gray.opacity(0.1))
                     .cornerRadius(12)
 
-                    // Serving size selector
+                    // Log by selector
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Servings")
+                        Text("Log by")
                             .font(.headline)
 
-                        HStack {
-                            Button(action: {
-                                if servings > 0.25 {
-                                    servings -= 0.25
-                                    servingText = String(format: "%.2f", servings)
-                                }
-                            }) {
-                                Image(systemName: "minus.circle.fill")
-                                    .font(.title2)
-                                    .foregroundColor(.blue)
-                            }
-
-                            TextField("Servings", text: $servingText)
-                                .keyboardType(.decimalPad)
-                                .multilineTextAlignment(.center)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
-                                .frame(width: 100)
-                                .onChange(of: servingText) { newValue in
-                                    if let value = Double(newValue), value > 0 {
-                                        servings = value
-                                    }
-                                }
-
-                            Button(action: {
-                                servings += 0.25
-                                servingText = String(format: "%.2f", servings)
-                            }) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.title2)
-                                    .foregroundColor(.blue)
-                            }
+                        Picker("Log by", selection: $logByServings) {
+                            Text("Servings").tag(true)
+                            Text("Grams").tag(false)
                         }
-
-                        Text("1 serving = \(Int(scannedFood.servingSize)) \(scannedFood.servingUnit)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        .pickerStyle(SegmentedPickerStyle())
                     }
                     .padding()
                     .background(Color.gray.opacity(0.1))
                     .cornerRadius(12)
 
+                    // Amount selector
+                    if logByServings {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Number of Servings")
+                                .font(.headline)
+
+                            HStack {
+                                Button(action: {
+                                    if servings > 0.25 {
+                                        servings -= 0.25
+                                        servingText = String(format: "%.2f", servings)
+                                    }
+                                }) {
+                                    Image(systemName: "minus.circle.fill")
+                                        .font(.title2)
+                                        .foregroundColor(.blue)
+                                }
+
+                                TextField("Servings", text: $servingText)
+                                    .keyboardType(.decimalPad)
+                                    .multilineTextAlignment(.center)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    .frame(width: 100)
+                                    .onChange(of: servingText) { newValue in
+                                        if let value = Double(newValue), value > 0 {
+                                            servings = value
+                                        }
+                                    }
+
+                                Button(action: {
+                                    servings += 0.25
+                                    servingText = String(format: "%.2f", servings)
+                                }) {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.title2)
+                                        .foregroundColor(.blue)
+                                }
+                            }
+
+                            Text("1 serving = \(Int(scannedFood.servingSize)) \(scannedFood.servingUnit)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(12)
+                    } else {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Amount in Grams")
+                                .font(.headline)
+
+                            HStack {
+                                Button(action: {
+                                    if grams > 10 {
+                                        grams -= 10
+                                        gramsText = String(format: "%.0f", grams)
+                                    }
+                                }) {
+                                    Image(systemName: "minus.circle.fill")
+                                        .font(.title2)
+                                        .foregroundColor(.blue)
+                                }
+
+                                TextField("Grams", text: $gramsText)
+                                    .keyboardType(.decimalPad)
+                                    .multilineTextAlignment(.center)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    .frame(width: 100)
+                                    .onChange(of: gramsText) { newValue in
+                                        if let value = Double(newValue), value > 0 {
+                                            grams = value
+                                        }
+                                    }
+
+                                Button(action: {
+                                    grams += 10
+                                    gramsText = String(format: "%.0f", grams)
+                                }) {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.title2)
+                                        .foregroundColor(.blue)
+                                }
+                            }
+
+                            Text("Enter custom amount in grams")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+
                     // Nutrition info per serving
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("Nutrition (per 100\(scannedFood.servingUnit))")
+                        Text("Nutrition (per serving)")
                             .font(.headline)
 
                         VStack(spacing: 12) {
                             NutritionRowView(
                                 label: "Calories",
-                                value: scannedFood.calories,
+                                value: scannedFood.caloriesPerServing,
                                 unit: "cal",
                                 color: .orange
                             )
 
                             NutritionRowView(
                                 label: "Protein",
-                                value: scannedFood.protein,
+                                value: scannedFood.proteinPerServing,
                                 unit: "g",
                                 color: .red
                             )
 
                             NutritionRowView(
                                 label: "Carbs",
-                                value: scannedFood.carbs,
+                                value: scannedFood.carbsPerServing,
                                 unit: "g",
                                 color: .blue
                             )
 
                             NutritionRowView(
                                 label: "Fat",
-                                value: scannedFood.fat,
+                                value: scannedFood.fatPerServing,
                                 unit: "g",
                                 color: .yellow
                             )
@@ -143,15 +208,20 @@ struct ScannedFoodDetailView: View {
                     .background(Color.gray.opacity(0.1))
                     .cornerRadius(12)
 
-                    // Total nutrition (with servings multiplier)
+                    // Total nutrition
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("Total (\(String(format: "%.2f", servings)) servings)")
-                            .font(.headline)
+                        if logByServings {
+                            Text("Total (\(String(format: "%.2f", servings)) servings)")
+                                .font(.headline)
+                        } else {
+                            Text("Total (\(String(format: "%.0f", grams))g)")
+                                .font(.headline)
+                        }
 
                         VStack(spacing: 12) {
                             NutritionRowView(
                                 label: "Calories",
-                                value: scannedFood.calories * servings,
+                                value: logByServings ? scannedFood.caloriesPerServing * servings : scannedFood.caloriesPer100g * (grams / 100.0),
                                 unit: "cal",
                                 color: .orange,
                                 isBold: true
@@ -159,7 +229,7 @@ struct ScannedFoodDetailView: View {
 
                             NutritionRowView(
                                 label: "Protein",
-                                value: scannedFood.protein * servings,
+                                value: logByServings ? scannedFood.proteinPerServing * servings : scannedFood.proteinPer100g * (grams / 100.0),
                                 unit: "g",
                                 color: .red,
                                 isBold: true
@@ -167,7 +237,7 @@ struct ScannedFoodDetailView: View {
 
                             NutritionRowView(
                                 label: "Carbs",
-                                value: scannedFood.carbs * servings,
+                                value: logByServings ? scannedFood.carbsPerServing * servings : scannedFood.carbsPer100g * (grams / 100.0),
                                 unit: "g",
                                 color: .blue,
                                 isBold: true
@@ -175,7 +245,7 @@ struct ScannedFoodDetailView: View {
 
                             NutritionRowView(
                                 label: "Fat",
-                                value: scannedFood.fat * servings,
+                                value: logByServings ? scannedFood.fatPerServing * servings : scannedFood.fatPer100g * (grams / 100.0),
                                 unit: "g",
                                 color: .yellow,
                                 isBold: true
@@ -188,7 +258,12 @@ struct ScannedFoodDetailView: View {
 
                     // Add button
                     Button(action: {
-                        let foodEntry = scannedFood.toFoodEntry(servings: servings)
+                        let foodEntry: FoodEntry
+                        if logByServings {
+                            foodEntry = scannedFood.toFoodEntry(servings: servings)
+                        } else {
+                            foodEntry = scannedFood.toFoodEntry(grams: grams)
+                        }
                         onConfirm(foodEntry)
                         dismiss()
                     }) {
@@ -251,10 +326,14 @@ struct NutritionRowView: View {
             barcode: "012345678901",
             name: "Greek Yogurt",
             brand: "Chobani",
-            calories: 59,
-            protein: 10,
-            carbs: 3.6,
-            fat: 0.4,
+            caloriesPerServing: 100,
+            proteinPerServing: 17,
+            carbsPerServing: 6.1,
+            fatPerServing: 0.7,
+            caloriesPer100g: 59,
+            proteinPer100g: 10,
+            carbsPer100g: 3.6,
+            fatPer100g: 0.4,
             servingSize: 170,
             servingUnit: "g",
             imageURL: nil

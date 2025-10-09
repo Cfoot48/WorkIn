@@ -17,8 +17,8 @@ GymBros is an iOS SwiftUI workout tracking application that provides comprehensi
 
 ### Core Features
 1. **Workout Tracking** - Real-time workout logging with exercise selection and set tracking
-2. **Nutrition Tracking** - Food entry and macronutrient monitoring
-3. **Progress Analytics** - Visual charts and statistics for workout progress
+2. **Nutrition Tracking** - Fo
+
 4. **User Profile** - Personal settings and preferences
 
 ## Data Models & Architecture

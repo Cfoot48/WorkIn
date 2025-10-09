@@ -85,6 +85,7 @@ struct WorkoutHistoryView: View {
     @ObservedObject var workoutStore: WorkoutStore
     let bodyWeight: Double
     @EnvironmentObject var themeManager: ThemeManager
+    @State private var selectedWorkout: Workout?
 
     var body: some View {
         ZStack {
@@ -93,12 +94,17 @@ struct WorkoutHistoryView: View {
 
             List {
                 ForEach(workouts) { workout in
-                    WorkoutRowView(workout: workout, bodyWeight: bodyWeight)
-                        .listRowBackground(themeManager.secondaryBackgroundColor)
+                    WorkoutRowView(workout: workout, bodyWeight: bodyWeight) {
+                        selectedWorkout = workout
+                    }
+                    .listRowBackground(themeManager.secondaryBackgroundColor)
                 }
                 .onDelete(perform: workoutStore.deleteWorkouts)
             }
             .listStyle(PlainListStyle())
+        }
+        .sheet(item: $selectedWorkout) { workout in
+            WorkoutDetailView(workout: workout)
         }
     }
 }
@@ -106,10 +112,12 @@ struct WorkoutHistoryView: View {
 struct WorkoutRowView: View {
     let workout: Workout
     let bodyWeight: Double
+    let onTap: () -> Void
     @EnvironmentObject var themeManager: ThemeManager
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(workout.name)
                     .font(.headline)
@@ -177,8 +185,10 @@ struct WorkoutRowView: View {
                     }
                 }
             }
+            }
+            .padding(.vertical, 4)
         }
-        .padding(.vertical, 4)
+        .buttonStyle(PlainButtonStyle())
     }
 
     private func formatDuration(_ duration: TimeInterval) -> String {

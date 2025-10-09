@@ -345,10 +345,11 @@ struct ExerciseDataPoint {
 
 struct CaloriesChartView: View {
     let nutritionData: [DailyNutrition]
+    let calorieGoal: Double
 
     var body: some View {
         let caloriesData = getDailyCaloriesData()
-        let maxCalories = caloriesData.map { $0.1 }.max() ?? 1
+        let maxCalories = max(caloriesData.map { $0.1 }.max() ?? 1, calorieGoal)
 
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -380,6 +381,15 @@ struct CaloriesChartView: View {
                     let chartWidth = geometry.size.width
                     let chartHeight: CGFloat = 120
                     let stepWidth = chartWidth / max(1, CGFloat(caloriesData.count - 1))
+
+                    // Goal line (dashed)
+                    let goalY = chartHeight - (calorieGoal / maxCalories) * chartHeight
+                    Path { path in
+                        path.move(to: CGPoint(x: 0, y: goalY))
+                        path.addLine(to: CGPoint(x: chartWidth, y: goalY))
+                    }
+                    .stroke(style: StrokeStyle(lineWidth: 2, dash: [5, 5]))
+                    .foregroundColor(.green.opacity(0.6))
 
                     // Draw line
                     Path { path in

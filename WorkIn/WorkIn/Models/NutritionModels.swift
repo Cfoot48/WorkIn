@@ -311,15 +311,23 @@ class BarcodeNutritionService {
                 print("⚠️ Warning: No nutrition data available for this product")
             }
 
+            // Calculate per-serving nutrition from per-100g values
+            let servingSize = product.servingQuantity ?? 100
+            let servingMultiplier = servingSize / 100.0
+
             return ScannedFoodData(
                 barcode: barcode,
                 name: product.productName ?? "Unknown Product",
                 brand: product.brands ?? "",
-                calories: calories,
-                protein: protein,
-                carbs: carbs,
-                fat: fat,
-                servingSize: product.servingQuantity ?? 100,
+                caloriesPerServing: calories * servingMultiplier,
+                proteinPerServing: protein * servingMultiplier,
+                carbsPerServing: carbs * servingMultiplier,
+                fatPerServing: fat * servingMultiplier,
+                caloriesPer100g: calories,
+                proteinPer100g: protein,
+                carbsPer100g: carbs,
+                fatPer100g: fat,
+                servingSize: servingSize,
                 servingUnit: product.servingQuantityUnit ?? "g",
                 imageURL: imageURL
             )
@@ -358,25 +366,44 @@ struct ScannedFoodData {
     let barcode: String
     let name: String
     let brand: String
-    let calories: Double
-    let protein: Double
-    let carbs: Double
-    let fat: Double
+    let caloriesPerServing: Double
+    let proteinPerServing: Double
+    let carbsPerServing: Double
+    let fatPerServing: Double
+    let caloriesPer100g: Double
+    let proteinPer100g: Double
+    let carbsPer100g: Double
+    let fatPer100g: Double
     let servingSize: Double
     let servingUnit: String
     let imageURL: String?
 
-    // Convert to FoodEntry
-    func toFoodEntry(servings: Double = 1, mealType: MealType = .breakfast) -> FoodEntry {
-        let multiplier = servings
-        return FoodEntry(
-            name: brand.isEmpty ? name : "\(brand) - \(name)",
-            calories: calories * multiplier,
-            protein: protein * multiplier,
-            carbs: carbs * multiplier,
-            fat: fat * multiplier,
-            mealType: mealType
-        )
+    // Convert to FoodEntry - can be by servings or by grams
+    func toFoodEntry(servings: Double? = nil, grams: Double? = nil, mealType: MealType = .breakfast) -> FoodEntry {
+        let multiplier: Double
+        if let grams = grams {
+            // Calculate based on grams
+            multiplier = grams / 100.0
+            return FoodEntry(
+                name: brand.isEmpty ? name : "\(brand) - \(name)",
+                calories: caloriesPer100g * multiplier,
+                protein: proteinPer100g * multiplier,
+                carbs: carbsPer100g * multiplier,
+                fat: fatPer100g * multiplier,
+                mealType: mealType
+            )
+        } else {
+            // Calculate based on servings
+            multiplier = servings ?? 1.0
+            return FoodEntry(
+                name: brand.isEmpty ? name : "\(brand) - \(name)",
+                calories: caloriesPerServing * multiplier,
+                protein: proteinPerServing * multiplier,
+                carbs: carbsPerServing * multiplier,
+                fat: fatPerServing * multiplier,
+                mealType: mealType
+            )
+        }
     }
 }
 

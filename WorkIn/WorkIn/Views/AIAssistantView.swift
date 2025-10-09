@@ -623,6 +623,8 @@ struct MealGeneratorView: View {
     @State private var isGenerating = false
     @State private var errorMessage: String?
     @State private var showingError = false
+    @State private var generatedPlan: AIMealPlan?
+    @State private var showingResult = false
 
     var body: some View {
         let _ = print("🍽️ MealGenerator body rendering - isGenerating: \(isGenerating)")
@@ -686,6 +688,22 @@ struct MealGeneratorView: View {
             } message: {
                 Text(errorMessage ?? "Unknown error")
             }
+            .sheet(isPresented: $showingResult) {
+                if let plan = generatedPlan {
+                    MealPlanResultView(
+                        plan: plan,
+                        onSave: { selectedMeals in
+                            saveSelectedRecipes(selectedMeals)
+                            showingResult = false
+                            dismiss()
+                        },
+                        onCancel: {
+                            showingResult = false
+                        }
+                    )
+                    .environmentObject(themeManager)
+                }
+            }
             .fullScreenCover(isPresented: $isGenerating) {
                 LoadingView(message: "Generating your meal plan...")
                     .interactiveDismissDisabled()
@@ -693,47 +711,304 @@ struct MealGeneratorView: View {
         }
     }
 
+    private func saveSelectedRecipes(_ selectedMeals: [AIMeal]) {
+        print("💾 Saving \(selectedMeals.count) selected recipes")
+
+        for meal in selectedMeals {
+            // Convert each recipe to a FoodEntry for the meal template
+            let foodEntry = FoodEntry(
+                name: meal.name,
+                calories: meal.totalCalories,
+                protein: meal.totalProtein,
+                carbs: meal.totalCarbs,
+                fat: meal.totalFat
+            )
+
+            let template = MealTemplate(
+                name: meal.name,
+                foods: [foodEntry],
+                ingredients: meal.ingredients,
+                instructions: meal.instructions,
+                servings: meal.servings
+            )
+
+            templateStore.addMealTemplate(template)
+        }
+
+        print("💾 Saved \(selectedMeals.count) recipes as meal templates")
+    }
+
     private func generateMealPlan() {
+        print("🍽️ Starting meal generation...")
         isGenerating = true
         errorMessage = nil
 
         Task {
             do {
+                print("🍽️ Calling AI service...")
                 let plan = try await AIAssistantService.shared.generateMealPlan(
                     userProfile: profileStore.profile,
                     preferences: preferences.isEmpty ? nil : preferences
                 )
 
                 await MainActor.run {
-                    // Convert AI plan to meal template
-                    let foods = plan.meals.flatMap { meal in
-                        meal.foods.map { aiFood in
-                            FoodEntry(
-                                name: aiFood.name,
-                                calories: aiFood.calories,
-                                protein: aiFood.protein,
-                                carbs: aiFood.carbs,
-                                fat: aiFood.fat
-                            )
-                        }
-                    }
-
-                    let template = MealTemplate(
-                        name: plan.name,
-                        foods: foods
-                    )
-
-                    templateStore.addMealTemplate(template)
+                    print("🍽️ AI service completed successfully")
+                    generatedPlan = plan
                     isGenerating = false
-                    dismiss()
+                    showingResult = true
                 }
             } catch {
                 await MainActor.run {
+                    print("🍽️ AI service error: \(error)")
                     errorMessage = error.localizedDescription
                     showingError = true
                     isGenerating = false
                 }
             }
+        }
+    }
+}
+
+// MARK: - Meal Plan Result View
+struct MealPlanResultView: View {
+    let plan: AIMealPlan
+    let onSave: ([AIMeal]) -> Void
+    let onCancel: () -> Void
+    @EnvironmentObject var themeManager: ThemeManager
+
+    @State private var selectedMeals: Set<String> = []
+    @State private var expandedRecipes: Set<String> = []
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        // Plan Header
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("AI-Generated Recipes")
+                                .font(.title)
+                                .fontWeight(.bold)
+
+                            Text("Select the recipes you want to save as meal presets")
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+
+                        // Recipes List
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Recipes (\(plan.meals.count))")
+                                .font(.headline)
+                                .padding(.horizontal)
+
+                            ForEach(plan.meals, id: \.name) { meal in
+                                RecipeCard(
+                                    meal: meal,
+                                    isSelected: selectedMeals.contains(meal.name),
+                                    isExpanded: expandedRecipes.contains(meal.name),
+                                    onToggleSelection: {
+                                        if selectedMeals.contains(meal.name) {
+                                            selectedMeals.remove(meal.name)
+                                        } else {
+                                            selectedMeals.insert(meal.name)
+                                        }
+                                    },
+                                    onToggleExpand: {
+                                        if expandedRecipes.contains(meal.name) {
+                                            expandedRecipes.remove(meal.name)
+                                        } else {
+                                            expandedRecipes.insert(meal.name)
+                                        }
+                                    }
+                                )
+                                .padding(.horizontal)
+                            }
+                        }
+
+                        Spacer(minLength: 20)
+                    }
+                }
+
+                // Bottom action buttons
+                VStack(spacing: 12) {
+                    Button(action: {
+                        let selected = plan.meals.filter { selectedMeals.contains($0.name) }
+                        onSave(selected)
+                    }) {
+                        HStack {
+                            Image(systemName: "bookmark.fill")
+                            Text("Save Selected Recipes (\(selectedMeals.count))")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(selectedMeals.isEmpty ? Color.gray : Color.cyan)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                    }
+                    .disabled(selectedMeals.isEmpty)
+
+                    Button(action: {
+                        selectedMeals = Set(plan.meals.map { $0.name })
+                    }) {
+                        Text("Select All")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(themeManager.secondaryBackgroundColor)
+                            .foregroundColor(themeManager.accentColor)
+                            .cornerRadius(12)
+                    }
+                }
+                .padding()
+                .background(themeManager.backgroundColor)
+            }
+            .background(themeManager.backgroundColor)
+            .navigationTitle("AI Meal Plan")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        onCancel()
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Recipe Card
+struct RecipeCard: View {
+    let meal: AIMeal
+    let isSelected: Bool
+    let isExpanded: Bool
+    let onToggleSelection: () -> Void
+    let onToggleExpand: () -> Void
+    @EnvironmentObject var themeManager: ThemeManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header with checkbox and name
+            HStack(alignment: .top, spacing: 12) {
+                Button(action: onToggleSelection) {
+                    Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                        .font(.title2)
+                        .foregroundColor(isSelected ? .cyan : .gray)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(meal.name)
+                        .font(.headline)
+                        .foregroundColor(themeManager.primaryTextColor)
+
+                    Text(meal.description)
+                        .font(.subheadline)
+                        .foregroundColor(themeManager.secondaryTextColor)
+                        .lineLimit(isExpanded ? nil : 2)
+
+                    // Nutrition summary
+                    HStack(spacing: 16) {
+                        Label("\(Int(meal.totalCalories)) cal", systemImage: "flame.fill")
+                        Label("\(Int(meal.totalProtein))g protein", systemImage: "heart.fill")
+                        Label("\(meal.servings) serving\(meal.servings > 1 ? "s" : "")", systemImage: "person.fill")
+                    }
+                    .font(.caption)
+                    .foregroundColor(.cyan)
+                }
+
+                Spacer()
+
+                Button(action: onToggleExpand) {
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .foregroundColor(.gray)
+                }
+            }
+
+            // Expanded details
+            if isExpanded {
+                Divider()
+
+                // Ingredients
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Ingredients")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(themeManager.primaryTextColor)
+
+                    ForEach(meal.ingredients, id: \.self) { ingredient in
+                        HStack(alignment: .top, spacing: 8) {
+                            Text("•")
+                                .foregroundColor(themeManager.secondaryTextColor)
+                            Text(ingredient)
+                                .font(.caption)
+                                .foregroundColor(themeManager.secondaryTextColor)
+                        }
+                    }
+                }
+
+                Divider()
+
+                // Instructions
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Instructions")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(themeManager.primaryTextColor)
+
+                    ForEach(Array(meal.instructions.enumerated()), id: \.offset) { index, instruction in
+                        HStack(alignment: .top, spacing: 8) {
+                            Text("\(index + 1).")
+                                .fontWeight(.semibold)
+                                .foregroundColor(themeManager.secondaryTextColor)
+                            Text(instruction)
+                                .font(.caption)
+                                .foregroundColor(themeManager.secondaryTextColor)
+                        }
+                    }
+                }
+
+                Divider()
+
+                // Complete nutrition info
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Nutrition Information")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(themeManager.primaryTextColor)
+
+                    HStack(spacing: 20) {
+                        RecipeNutritionBadge(value: Int(meal.totalCalories), label: "cal", color: .orange)
+                        RecipeNutritionBadge(value: Int(meal.totalProtein), label: "P", color: .red)
+                        RecipeNutritionBadge(value: Int(meal.totalCarbs), label: "C", color: .blue)
+                        RecipeNutritionBadge(value: Int(meal.totalFat), label: "F", color: .green)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(isSelected ? themeManager.accentColor.opacity(0.1) : themeManager.secondaryBackgroundColor)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isSelected ? themeManager.accentColor : Color.clear, lineWidth: 2)
+        )
+    }
+}
+
+// MARK: - Recipe Nutrition Badge
+struct RecipeNutritionBadge: View {
+    let value: Int
+    let label: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text("\(value)")
+                .font(.caption)
+                .fontWeight(.bold)
+                .foregroundColor(color)
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(.secondary)
         }
     }
 }

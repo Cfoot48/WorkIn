@@ -13,6 +13,15 @@ struct ProgressView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
+                // Title
+                Text("Progress")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(themeManager.primaryTextColor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+
                 // Custom Tab Bar
                 HStack {
                     TabButton(title: "Exercise", isSelected: selectedTab == 0, color: .blue) {
@@ -23,7 +32,7 @@ struct ProgressView: View {
                     }
                 }
                 .padding(.horizontal)
-                .padding(.top, 8)
+                .padding(.top, 4)
                 .background(themeManager.backgroundColor)
 
                 // Tab Content
@@ -37,7 +46,7 @@ struct ProgressView: View {
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             }
             .background(themeManager.backgroundColor)
-            .navigationTitle("Progress")
+            .navigationBarHidden(true)
             .onAppear {
                 // Data is automatically loaded via WorkoutStore Firebase listeners
             }
@@ -72,12 +81,15 @@ struct ProgressView: View {
     private var nutritionTabContent: some View {
         ScrollView {
             VStack(spacing: 24) {
-                CaloriesChartView(nutritionData: nutritionStore.dailyNutrition)
-                    .frame(height: 200)
-                    .padding()
-                    .background(themeManager.secondaryBackgroundColor)
-                    .cornerRadius(12)
-                    .id(nutritionStore.dailyNutrition.count)
+                CaloriesChartView(
+                    nutritionData: nutritionStore.dailyNutrition,
+                    calorieGoal: nutritionStore.nutritionGoals.dailyCalories
+                )
+                .frame(height: 200)
+                .padding()
+                .background(themeManager.secondaryBackgroundColor)
+                .cornerRadius(12)
+                .id(nutritionStore.dailyNutrition.count)
 
                 weeklyMacrosSection
             }

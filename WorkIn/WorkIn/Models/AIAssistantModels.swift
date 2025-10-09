@@ -34,7 +34,7 @@ class AIAssistantService {
     func generateWorkoutPlan(userProfile: UserProfile, workoutHistory: [Workout], preferences: String?) async throws -> AIWorkoutPlan {
         let prompt = buildWorkoutPrompt(userProfile: userProfile, workoutHistory: workoutHistory, preferences: preferences)
 
-        let response = try await callOpenAI(prompt: prompt, systemMessage: "You are a professional fitness coach creating personalized workout plans. Respond with workout plans in JSON format with exercises, sets, reps, and rest times.")
+        let response = try await callOpenAI(prompt: prompt, systemMessage: "You are a professional fitness coach. You MUST respond with ONLY valid JSON - no markdown formatting, no code blocks, no explanations. Just raw JSON matching the exact format provided in the prompt.")
 
         return try parseWorkoutPlan(from: response)
     }
@@ -43,7 +43,7 @@ class AIAssistantService {
     func generateMealPlan(userProfile: UserProfile, preferences: String?) async throws -> AIMealPlan {
         let prompt = buildMealPrompt(userProfile: userProfile, preferences: preferences)
 
-        let response = try await callOpenAI(prompt: prompt, systemMessage: "You are a professional nutritionist creating personalized meal plans. Respond with meal plans in JSON format with meals, foods, and macros.")
+        let response = try await callOpenAI(prompt: prompt, systemMessage: "You are a professional nutritionist. You MUST respond with ONLY valid JSON - no markdown formatting, no code blocks, no explanations. Just raw JSON matching the exact format provided in the prompt.")
 
         return try parseMealPlan(from: response)
     }
@@ -74,7 +74,7 @@ class AIAssistantService {
 
         prompt += """
 
-        Please create a workout plan in the following JSON format:
+        IMPORTANT: Respond ONLY with valid JSON in this exact format (no markdown, no explanations):
         {
           "name": "Workout Name",
           "description": "Brief description",
@@ -90,6 +90,8 @@ class AIAssistantService {
             }
           ]
         }
+
+        Create a complete workout with 6-8 exercises. All fields are required except description (optional).
         """
 
         return prompt
@@ -97,7 +99,7 @@ class AIAssistantService {
 
     private func buildMealPrompt(userProfile: UserProfile, preferences: String?) -> String {
         var prompt = """
-        Create a personalized meal plan for me based on the following information:
+        Create 5 healthy meal/recipe ideas for me based on the following information:
 
         User Profile:
         - Goal: \(userProfile.goalType.rawValue)
@@ -112,25 +114,39 @@ class AIAssistantService {
 
         prompt += """
 
-        Please create a meal plan in the following JSON format:
+        IMPORTANT: Respond ONLY with valid JSON in this exact format (no markdown, no explanations):
         {
-          "name": "Meal Plan Name",
-          "description": "Brief description",
           "meals": [
             {
-              "name": "Meal Name",
-              "foods": [
-                {
-                  "name": "Food Item",
-                  "calories": 300,
-                  "protein": 25,
-                  "carbs": 30,
-                  "fat": 10
-                }
-              ]
+              "name": "Recipe Name",
+              "description": "Brief 1-2 sentence description of the meal",
+              "ingredients": [
+                "1 cup chicken breast, diced",
+                "2 cups brown rice",
+                "1 tbsp olive oil"
+              ],
+              "instructions": [
+                "Heat oil in a pan over medium heat",
+                "Add chicken and cook until golden brown",
+                "Serve over rice"
+              ],
+              "servings": 1,
+              "totalCalories": 450,
+              "totalProtein": 35,
+              "totalCarbs": 45,
+              "totalFat": 12
             }
           ]
         }
+
+        Create exactly 5 diverse meal/recipe ideas. Each meal should:
+        - Be a complete recipe with ingredients and instructions
+        - Fit within the user's macro goals (each meal should be reasonable for their daily totals)
+        - Include accurate nutritional information
+        - Have clear, easy-to-follow instructions
+        - Use common ingredients
+
+        All fields are required. The instructions should be brief but clear steps.
         """
 
         return prompt
@@ -185,41 +201,81 @@ class AIAssistantService {
 
     // MARK: - Parse Responses
     private func parseWorkoutPlan(from response: String) throws -> AIWorkoutPlan {
-        // Extract JSON from potential markdown code blocks
-        var jsonString = response
-        if let jsonStart = response.range(of: "```json")?.upperBound,
-           let jsonEnd = response.range(of: "```", range: jsonStart..<response.endIndex)?.lowerBound {
-            jsonString = String(response[jsonStart..<jsonEnd]).trimmingCharacters(in: .whitespacesAndNewlines)
-        } else if let jsonStart = response.range(of: "{"),
-                  let jsonEnd = response.range(of: "}", options: .backwards) {
-            jsonString = String(response[jsonStart.lowerBound...jsonEnd.upperBound])
-        }
+        print("🤖 AI Response: \(response)")
+
+        // The response is already clean JSON, just trim whitespace
+        let jsonString = response.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        print("🤖 Extracted JSON: \(jsonString)")
 
         guard let data = jsonString.data(using: .utf8) else {
-            throw AIError.parsingError
+            print("🤖 ERROR: Failed to convert JSON string to data")
+            throw AIError.invalidResponse
         }
 
         let decoder = JSONDecoder()
-        return try decoder.decode(AIWorkoutPlan.self, from: data)
+        decoder.keyDecodingStrategy = .useDefaultKeys
+
+        do {
+            let plan = try decoder.decode(AIWorkoutPlan.self, from: data)
+            print("🤖 Successfully decoded workout plan: \(plan.name)")
+            return plan
+        } catch let DecodingError.keyNotFound(key, context) {
+            print("🤖 ERROR: Missing key '\(key.stringValue)' - \(context.debugDescription)")
+            throw AIError.parsingError
+        } catch let DecodingError.typeMismatch(type, context) {
+            print("🤖 ERROR: Type mismatch for type '\(type)' - \(context.debugDescription)")
+            throw AIError.parsingError
+        } catch let DecodingError.valueNotFound(type, context) {
+            print("🤖 ERROR: Value not found for type '\(type)' - \(context.debugDescription)")
+            throw AIError.parsingError
+        } catch {
+            print("🤖 ERROR: Failed to decode JSON: \(error)")
+            print("🤖 ERROR Details: \(error.localizedDescription)")
+            if let decodingError = error as? DecodingError {
+                print("🤖 Decoding Error: \(decodingError)")
+            }
+            throw AIError.parsingError
+        }
     }
 
     private func parseMealPlan(from response: String) throws -> AIMealPlan {
-        // Extract JSON from potential markdown code blocks
-        var jsonString = response
-        if let jsonStart = response.range(of: "```json")?.upperBound,
-           let jsonEnd = response.range(of: "```", range: jsonStart..<response.endIndex)?.lowerBound {
-            jsonString = String(response[jsonStart..<jsonEnd]).trimmingCharacters(in: .whitespacesAndNewlines)
-        } else if let jsonStart = response.range(of: "{"),
-                  let jsonEnd = response.range(of: "}", options: .backwards) {
-            jsonString = String(response[jsonStart.lowerBound...jsonEnd.upperBound])
-        }
+        print("🍽️ AI Response: \(response)")
+
+        // The response is already clean JSON, just trim whitespace
+        let jsonString = response.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        print("🍽️ Extracted JSON: \(jsonString)")
 
         guard let data = jsonString.data(using: .utf8) else {
-            throw AIError.parsingError
+            print("🍽️ ERROR: Failed to convert JSON string to data")
+            throw AIError.invalidResponse
         }
 
         let decoder = JSONDecoder()
-        return try decoder.decode(AIMealPlan.self, from: data)
+        decoder.keyDecodingStrategy = .useDefaultKeys
+
+        do {
+            let plan = try decoder.decode(AIMealPlan.self, from: data)
+            print("🍽️ Successfully decoded meal plan: \(plan.name)")
+            return plan
+        } catch let DecodingError.keyNotFound(key, context) {
+            print("🍽️ ERROR: Missing key '\(key.stringValue)' - \(context.debugDescription)")
+            throw AIError.parsingError
+        } catch let DecodingError.typeMismatch(type, context) {
+            print("🍽️ ERROR: Type mismatch for type '\(type)' - \(context.debugDescription)")
+            throw AIError.parsingError
+        } catch let DecodingError.valueNotFound(type, context) {
+            print("🍽️ ERROR: Value not found for type '\(type)' - \(context.debugDescription)")
+            throw AIError.parsingError
+        } catch {
+            print("🍽️ ERROR: Failed to decode JSON: \(error)")
+            print("🍽️ ERROR Details: \(error.localizedDescription)")
+            if let decodingError = error as? DecodingError {
+                print("🍽️ Decoding Error: \(decodingError)")
+            }
+            throw AIError.parsingError
+        }
     }
 }
 
@@ -227,7 +283,7 @@ class AIAssistantService {
 
 struct AIWorkoutPlan: Codable {
     let name: String
-    let description: String
+    let description: String?
     let exercises: [AIExercise]
 }
 
@@ -235,29 +291,46 @@ struct AIExercise: Codable {
     let name: String
     let sets: Int
     let reps: Int
-    let weight: Double
-    let restTime: Double
-    let muscleGroups: [String]
-    let equipment: String
+    let weight: Double?
+    let restTime: Double?
+    let muscleGroups: [String]?
+    let equipment: String?
+
+    enum CodingKeys: String, CodingKey {
+        case name, sets, reps, weight, restTime, muscleGroups, equipment
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        sets = try container.decode(Int.self, forKey: .sets)
+        reps = try container.decode(Int.self, forKey: .reps)
+        weight = try? container.decode(Double.self, forKey: .weight)
+        restTime = try? container.decode(Double.self, forKey: .restTime)
+        muscleGroups = try? container.decode([String].self, forKey: .muscleGroups)
+        equipment = try? container.decode(String.self, forKey: .equipment)
+    }
 }
 
 struct AIMealPlan: Codable {
-    let name: String
-    let description: String
     let meals: [AIMeal]
+
+    // For compatibility, provide a default name
+    var name: String {
+        return "AI-Generated Meal Plan"
+    }
 }
 
 struct AIMeal: Codable {
     let name: String
-    let foods: [AIFood]
-}
-
-struct AIFood: Codable {
-    let name: String
-    let calories: Double
-    let protein: Double
-    let carbs: Double
-    let fat: Double
+    let description: String
+    let ingredients: [String]
+    let instructions: [String]
+    let servings: Int
+    let totalCalories: Double
+    let totalProtein: Double
+    let totalCarbs: Double
+    let totalFat: Double
 }
 
 // MARK: - AI Workout Template (stored in memory, not conflicting with existing WorkoutTemplate)
@@ -282,11 +355,17 @@ struct MealTemplate: Identifiable, Codable {
     let id: UUID
     var name: String
     var foods: [FoodEntry]
+    var ingredients: [String]?
+    var instructions: [String]?
+    var servings: Int?
 
-    init(id: UUID = UUID(), name: String, foods: [FoodEntry]) {
+    init(id: UUID = UUID(), name: String, foods: [FoodEntry], ingredients: [String]? = nil, instructions: [String]? = nil, servings: Int? = nil) {
         self.id = id
         self.name = name
         self.foods = foods
+        self.ingredients = ingredients
+        self.instructions = instructions
+        self.servings = servings
     }
 }
 
@@ -304,8 +383,11 @@ class TemplateStore: ObservableObject {
 
     // MARK: - Workout Templates
     func addWorkoutTemplate(_ template: AIWorkoutTemplate) {
+        print("📝 TemplateStore: Adding template '\(template.name)' with \(template.exercises.count) exercises")
         workoutTemplates.insert(template, at: 0)
+        print("📝 TemplateStore: Total templates after insert: \(workoutTemplates.count)")
         saveWorkoutTemplates()
+        print("📝 TemplateStore: Saved to UserDefaults")
     }
 
     func deleteWorkoutTemplate(_ template: AIWorkoutTemplate) {
@@ -338,14 +420,21 @@ class TemplateStore: ObservableObject {
 
     // MARK: - Load Templates
     private func loadTemplates() {
+        print("📂 TemplateStore: Loading templates from UserDefaults")
         if let data = UserDefaults.standard.data(forKey: workoutTemplatesKey),
            let decoded = try? JSONDecoder().decode([AIWorkoutTemplate].self, from: data) {
             workoutTemplates = decoded
+            print("📂 TemplateStore: Loaded \(workoutTemplates.count) workout templates")
+        } else {
+            print("📂 TemplateStore: No workout templates found in UserDefaults")
         }
 
         if let data = UserDefaults.standard.data(forKey: mealTemplatesKey),
            let decoded = try? JSONDecoder().decode([MealTemplate].self, from: data) {
             mealTemplates = decoded
+            print("📂 TemplateStore: Loaded \(mealTemplates.count) meal templates")
+        } else {
+            print("📂 TemplateStore: No meal templates found in UserDefaults")
         }
     }
 }
@@ -360,13 +449,21 @@ enum AIError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .apiKeyNotSet:
-            return "OpenAI API key not set. Please add your API key in AIAssistantModels.swift"
+            return "OpenAI API key not set. Please add your API key in settings."
         case .invalidResponse:
-            return "Invalid response from AI service"
+            return "The AI service returned an invalid response. Please try again."
         case .apiError(let statusCode):
-            return "AI API error: Status code \(statusCode)"
+            if statusCode == 401 {
+                return "Invalid API key. Please check your OpenRouter API key."
+            } else if statusCode == 429 {
+                return "Too many requests. Please wait a moment and try again."
+            } else if statusCode == 500 {
+                return "AI service error. Please try again later."
+            } else {
+                return "AI service error (code \(statusCode)). Please try again."
+            }
         case .parsingError:
-            return "Failed to parse AI response"
+            return "The AI generated an invalid workout plan. Please try again with different preferences or simpler instructions."
         }
     }
 }

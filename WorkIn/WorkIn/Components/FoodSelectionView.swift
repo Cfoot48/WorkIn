@@ -1,15 +1,23 @@
 import SwiftUI
 
+enum FoodEntryMode {
+    case database
+    case yourMeals
+    case manual
+}
+
 struct FoodSelectionView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var foodDatabase = FoodDatabase.shared
+    @EnvironmentObject var templateStore: TemplateStore
 
     @State private var searchText = ""
     @State private var selectedCategory: FoodCategory? = nil
-    @State private var showingManualEntry = false
+    @State private var selectedMode: FoodEntryMode = .database
     @State private var selectedFood: FoodTemplate?
     @State private var servingMultiplier: Double = 1.0
     @State private var selectedMealType: MealType = .breakfast
+    @State private var selectedRecipe: MealTemplate?
 
     let onSelection: (FoodEntry) -> Void
 
@@ -32,18 +40,22 @@ struct FoodSelectionView: View {
                 }
                 .padding(.bottom)
 
-                // Toggle between database search and manual entry
-                Picker("Entry Mode", selection: $showingManualEntry) {
-                    Text("Search Database").tag(false)
-                    Text("Manual Entry").tag(true)
+                // Toggle between database search, your meals, and manual entry
+                Picker("Entry Mode", selection: $selectedMode) {
+                    Text("Search").tag(FoodEntryMode.database)
+                    Text("Your Meals").tag(FoodEntryMode.yourMeals)
+                    Text("Manual").tag(FoodEntryMode.manual)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
 
-                if showingManualEntry {
-                    manualEntryView
-                } else {
+                switch selectedMode {
+                case .database:
                     foodSearchView
+                case .yourMeals:
+                    yourMealsView
+                case .manual:
+                    manualEntryView
                 }
             }
             .navigationTitle("Add Food")
@@ -58,6 +70,14 @@ struct FoodSelectionView: View {
             .sheet(item: $selectedFood) { food in
                 FoodDetailView(food: food, mealType: selectedMealType) { entry in
                     onSelection(entry)
+                    dismiss()
+                }
+            }
+            .sheet(item: $selectedRecipe) { recipe in
+                SavedRecipeLogView(recipe: recipe, selectedMealType: selectedMealType) { entries in
+                    for entry in entries {
+                        onSelection(entry)
+                    }
                     dismiss()
                 }
             }
@@ -110,6 +130,35 @@ struct FoodSelectionView: View {
         }
     }
 
+    private var yourMealsView: some View {
+        VStack {
+            if templateStore.mealTemplates.isEmpty {
+                VStack(spacing: 20) {
+                    Image(systemName: "book.closed.fill")
+                        .font(.system(size: 50))
+                        .foregroundColor(.secondary)
+
+                    Text("No Saved Meals")
+                        .font(.headline)
+
+                    Text("Save recipes from the AI Assistant to quickly log them here")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                }
+                .frame(maxHeight: .infinity)
+            } else {
+                List(templateStore.mealTemplates) { template in
+                    SavedMealRowView(template: template) {
+                        selectedRecipe = template
+                    }
+                }
+                .listStyle(PlainListStyle())
+            }
+        }
+    }
+
     private var manualEntryView: some View {
         ManualFoodEntryView(mealType: selectedMealType) { entry in
             onSelection(entry)
@@ -119,6 +168,220 @@ struct FoodSelectionView: View {
 
     private var filteredFoods: [FoodTemplate] {
         foodDatabase.searchFoods(query: searchText, category: selectedCategory)
+    }
+}
+
+// MARK: - Saved Meal Row View
+struct SavedMealRowView: View {
+    let template: MealTemplate
+    let onTap: () -> Void
+
+    var totalCalories: Double {
+        template.foods.reduce(0) { $0 + $1.calories }
+    }
+
+    var totalProtein: Double {
+        template.foods.reduce(0) { $0 + $1.protein }
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(template.name)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+
+                    HStack(spacing: 16) {
+                        Label("\(Int(totalCalories)) cal", systemImage: "flame.fill")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                        Label("\(Int(totalProtein))g protein", systemImage: "heart.fill")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                        if let servings = template.servings {
+                            Label("\(servings) serving\(servings > 1 ? "s" : "")", systemImage: "person.fill")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.vertical, 8)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Saved Recipe Log View (for Nutrition)
+struct SavedRecipeLogView: View {
+    @Environment(\.dismiss) private var dismiss
+    let recipe: MealTemplate
+    let selectedMealType: MealType
+    let onLog: ([FoodEntry]) -> Void
+
+    var totalCalories: Double {
+        recipe.foods.reduce(0) { $0 + $1.calories }
+    }
+
+    var totalProtein: Double {
+        recipe.foods.reduce(0) { $0 + $1.protein }
+    }
+
+    var totalCarbs: Double {
+        recipe.foods.reduce(0) { $0 + $1.carbs }
+    }
+
+    var totalFat: Double {
+        recipe.foods.reduce(0) { $0 + $1.fat }
+    }
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Recipe Header
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(recipe.name)
+                            .font(.title2)
+                            .fontWeight(.bold)
+
+                        if let servings = recipe.servings {
+                            Text("\(servings) serving\(servings > 1 ? "s" : "")")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+
+                        // Nutrition Summary
+                        HStack(spacing: 20) {
+                            NutritionCompactBadge(value: Int(totalCalories), label: "cal", color: .orange)
+                            NutritionCompactBadge(value: Int(totalProtein), label: "P", color: .red)
+                            NutritionCompactBadge(value: Int(totalCarbs), label: "C", color: .blue)
+                            NutritionCompactBadge(value: Int(totalFat), label: "F", color: .green)
+                        }
+                    }
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(12)
+
+                    // Ingredients
+                    if let ingredients = recipe.ingredients, !ingredients.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Ingredients")
+                                .font(.headline)
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(ingredients, id: \.self) { ingredient in
+                                    HStack(alignment: .top, spacing: 8) {
+                                        Text("•")
+                                            .foregroundColor(.secondary)
+                                        Text(ingredient)
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+
+                    // Instructions
+                    if let instructions = recipe.instructions, !instructions.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Instructions")
+                                .font(.headline)
+
+                            VStack(alignment: .leading, spacing: 10) {
+                                ForEach(Array(instructions.enumerated()), id: \.offset) { index, instruction in
+                                    HStack(alignment: .top, spacing: 8) {
+                                        Text("\(index + 1).")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                            .foregroundColor(.cyan)
+                                        Text(instruction)
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+
+                    // Log Button
+                    Button(action: {
+                        print("📝 NUTRITION VIEW: Logging recipe '\(recipe.name)' with selected meal type: \(selectedMealType.rawValue)")
+                        let foodEntries = recipe.foods.map { food in
+                            var modifiedFood = food
+                            modifiedFood.mealType = selectedMealType
+                            print("📝 NUTRITION VIEW: Setting food '\(modifiedFood.name)' mealType to \(modifiedFood.mealType.rawValue)")
+                            return modifiedFood
+                        }
+                        print("📝 NUTRITION VIEW: About to call onLog with \(foodEntries.count) entries")
+                        onLog(foodEntries)
+                    }) {
+                        HStack {
+                            Image(systemName: "plus.circle.fill")
+                            Text("Log to \(selectedMealType.rawValue)")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(
+                            LinearGradient(
+                                colors: [Color.cyan, Color(red: 0.3, green: 0.5, blue: 1.0)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(12)
+                        .shadow(color: .cyan.opacity(0.3), radius: 8, x: 0, y: 4)
+                    }
+                    .padding(.horizontal)
+                }
+                .padding()
+            }
+            .navigationTitle("Recipe Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Nutrition Compact Badge
+struct NutritionCompactBadge: View {
+    let value: Int
+    let label: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text("\(value)")
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundColor(color)
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -956,34 +1219,34 @@ struct ScannedFoodDetailView: View {
 
                     // Nutrition info per serving
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("Nutrition (per 100\(scannedFood.servingUnit))")
+                        Text("Nutrition (per serving)")
                             .font(.headline)
 
                         VStack(spacing: 12) {
                             NutritionRowView(
                                 label: "Calories",
-                                value: scannedFood.calories,
+                                value: scannedFood.caloriesPerServing,
                                 unit: "cal",
                                 color: .orange
                             )
 
                             NutritionRowView(
                                 label: "Protein",
-                                value: scannedFood.protein,
+                                value: scannedFood.proteinPerServing,
                                 unit: "g",
                                 color: .red
                             )
 
                             NutritionRowView(
                                 label: "Carbs",
-                                value: scannedFood.carbs,
+                                value: scannedFood.carbsPerServing,
                                 unit: "g",
                                 color: .blue
                             )
 
                             NutritionRowView(
                                 label: "Fat",
-                                value: scannedFood.fat,
+                                value: scannedFood.fatPerServing,
                                 unit: "g",
                                 color: .yellow
                             )
@@ -1001,7 +1264,7 @@ struct ScannedFoodDetailView: View {
                         VStack(spacing: 12) {
                             NutritionRowView(
                                 label: "Calories",
-                                value: scannedFood.calories * servings,
+                                value: scannedFood.caloriesPerServing * servings,
                                 unit: "cal",
                                 color: .orange,
                                 isBold: true
@@ -1009,7 +1272,7 @@ struct ScannedFoodDetailView: View {
 
                             NutritionRowView(
                                 label: "Protein",
-                                value: scannedFood.protein * servings,
+                                value: scannedFood.proteinPerServing * servings,
                                 unit: "g",
                                 color: .red,
                                 isBold: true
@@ -1017,7 +1280,7 @@ struct ScannedFoodDetailView: View {
 
                             NutritionRowView(
                                 label: "Carbs",
-                                value: scannedFood.carbs * servings,
+                                value: scannedFood.carbsPerServing * servings,
                                 unit: "g",
                                 color: .blue,
                                 isBold: true
@@ -1025,7 +1288,7 @@ struct ScannedFoodDetailView: View {
 
                             NutritionRowView(
                                 label: "Fat",
-                                value: scannedFood.fat * servings,
+                                value: scannedFood.fatPerServing * servings,
                                 unit: "g",
                                 color: .yellow,
                                 isBold: true

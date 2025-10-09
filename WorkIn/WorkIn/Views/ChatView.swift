@@ -60,8 +60,7 @@ struct ChatView: View {
                 .padding()
                 .background(themeManager.secondaryBackgroundColor)
             }
-            .navigationTitle("Community Chat")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarHidden(true)
             .background(themeManager.backgroundColor)
             .onAppear {
                 chatManager.startListening()

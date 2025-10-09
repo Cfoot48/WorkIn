@@ -2,10 +2,11 @@ import SwiftUI
 
 struct CaloriesChartView: View {
     let nutritionData: [DailyNutrition]
+    let calorieGoal: Double
 
     var body: some View {
         let caloriesData = getDailyCaloriesData()
-        let maxCalories = caloriesData.map { $0.1 }.max() ?? 1
+        let maxCalories = max(caloriesData.map { $0.1 }.max() ?? 1, calorieGoal)
 
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -37,6 +38,15 @@ struct CaloriesChartView: View {
                     let chartWidth = geometry.size.width
                     let chartHeight: CGFloat = 120
                     let stepWidth = chartWidth / max(1, CGFloat(caloriesData.count - 1))
+
+                    // Goal line (dashed)
+                    let goalY = chartHeight - (calorieGoal / maxCalories) * chartHeight
+                    Path { path in
+                        path.move(to: CGPoint(x: 0, y: goalY))
+                        path.addLine(to: CGPoint(x: chartWidth, y: goalY))
+                    }
+                    .stroke(style: StrokeStyle(lineWidth: 2, dash: [5, 5]))
+                    .foregroundColor(.green.opacity(0.6))
 
                     // Draw line
                     Path { path in
@@ -130,22 +140,25 @@ struct CaloriesChartView: View {
 }
 
 #Preview {
-    CaloriesChartView(nutritionData: [
-        DailyNutrition(
-            date: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date(),
-            entries: [
-                FoodEntry(name: "Breakfast", calories: 400, protein: 20, carbs: 50, fat: 15),
-                FoodEntry(name: "Lunch", calories: 600, protein: 30, carbs: 70, fat: 20),
-                FoodEntry(name: "Dinner", calories: 800, protein: 40, carbs: 80, fat: 25)
-            ]
-        ),
-        DailyNutrition(
-            date: Date(),
-            entries: [
-                FoodEntry(name: "Breakfast", calories: 350, protein: 18, carbs: 45, fat: 12)
-            ]
-        )
-    ])
-        .frame(height: 200)
-        .padding()
+    CaloriesChartView(
+        nutritionData: [
+            DailyNutrition(
+                date: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date(),
+                entries: [
+                    FoodEntry(name: "Breakfast", calories: 400, protein: 20, carbs: 50, fat: 15),
+                    FoodEntry(name: "Lunch", calories: 600, protein: 30, carbs: 70, fat: 20),
+                    FoodEntry(name: "Dinner", calories: 800, protein: 40, carbs: 80, fat: 25)
+                ]
+            ),
+            DailyNutrition(
+                date: Date(),
+                entries: [
+                    FoodEntry(name: "Breakfast", calories: 350, protein: 18, carbs: 45, fat: 12)
+                ]
+            )
+        ],
+        calorieGoal: 2000
+    )
+    .frame(height: 200)
+    .padding()
 }

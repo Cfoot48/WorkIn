@@ -1,12 +1,21 @@
 import Foundation
 
 struct WorkoutTemplate: Identifiable, Codable {
-    let id = UUID()
+    let id: UUID
     let name: String
     let description: String
     let category: String
     let exercises: [String] // Exercise names that will be looked up
     let estimatedDuration: TimeInterval
+
+    init(id: UUID = UUID(), name: String, description: String, category: String, exercises: [String], estimatedDuration: TimeInterval) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.category = category
+        self.exercises = exercises
+        self.estimatedDuration = estimatedDuration
+    }
 
     func createWorkout() -> Workout {
         let workoutExercises = exercises.compactMap { exerciseName in
@@ -17,7 +26,7 @@ struct WorkoutTemplate: Identifiable, Codable {
 }
 
 struct WorkoutTemplateDatabase {
-    static let templates: [WorkoutTemplate] = [
+    static var templates: [WorkoutTemplate] = [
         // Push Day Templates
         WorkoutTemplate(
             name: "Push Day - Beginner",
@@ -146,6 +155,35 @@ struct WorkoutTemplateDatabase {
         return templates.filter { template in
             template.name.localizedCaseInsensitiveContains(searchText) ||
             template.description.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    // Add AI-generated template
+    static func addAITemplate(name: String, exercises: [String]) {
+        let template = WorkoutTemplate(
+            name: name,
+            description: "AI Generated Workout",
+            category: "AI Generated",
+            exercises: exercises,
+            estimatedDuration: 3600 // Default 60 minutes
+        )
+        templates.insert(template, at: 0)
+        saveTemplates()
+    }
+
+    // Persistence
+    private static let templatesKey = "workoutTemplates"
+
+    static func saveTemplates() {
+        if let encoded = try? JSONEncoder().encode(templates) {
+            UserDefaults.standard.set(encoded, forKey: templatesKey)
+        }
+    }
+
+    static func loadTemplates() {
+        if let data = UserDefaults.standard.data(forKey: templatesKey),
+           let decoded = try? JSONDecoder().decode([WorkoutTemplate].self, from: data) {
+            templates = decoded
         }
     }
 }

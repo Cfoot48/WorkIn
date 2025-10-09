@@ -100,7 +100,8 @@ class FirestoreManager: ObservableObject {
                     "calories": entry.calories,
                     "protein": entry.protein,
                     "carbs": entry.carbs,
-                    "fat": entry.fat
+                    "fat": entry.fat,
+                    "mealType": entry.mealType.rawValue
                 ]
             },
             "createdAt": FieldValue.serverTimestamp(),
@@ -320,13 +321,18 @@ class FirestoreManager: ObservableObject {
             throw FirestoreError.invalidData
         }
 
+        // Parse meal type with fallback to breakfast for backwards compatibility
+        let mealTypeString = data["mealType"] as? String ?? "Breakfast"
+        let mealType = MealType(rawValue: mealTypeString) ?? .breakfast
+
         return FoodEntry(
             id: id,
             name: name,
             calories: calories,
             protein: protein,
             carbs: carbs,
-            fat: fat
+            fat: fat,
+            mealType: mealType
         )
     }
 
