@@ -52,19 +52,18 @@ struct ProfileHeaderView: View {
     @ObservedObject var authManager: AuthenticationManager
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var profileStore: UserProfileStore
+    @EnvironmentObject var chatManager: ChatManager
     @State private var showingEditName = false
     @State private var newName = ""
+    @State private var showingModerationError = false
+    @State private var moderationErrorMessage = ""
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "person.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(themeManager.accentColor)
-
             VStack(spacing: 4) {
                 HStack {
                     Text(profileStore.profile.displayName.isEmpty ? (authManager.user?.email ?? "User") : profileStore.profile.displayName)
-                        .font(.title2)
+                        .font(.largeTitle)
                         .fontWeight(.bold)
                         .foregroundColor(themeManager.primaryTextColor)
 
@@ -72,7 +71,17 @@ struct ProfileHeaderView: View {
                         Text("(Developer)")
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundColor(.blue)
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 0.6, green: 0.8, blue: 1.0),
+                                        Color(red: 0.8, green: 0.6, blue: 1.0),
+                                        Color(red: 1.0, green: 0.7, blue: 0.8)
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
                     }
 
                     Button(action: {
@@ -80,7 +89,7 @@ struct ProfileHeaderView: View {
                         showingEditName = true
                     }) {
                         Image(systemName: "pencil.circle.fill")
-                            .foregroundColor(themeManager.accentColor)
+                            .foregroundColor(DesignSystem.Colors.primary)
                     }
                 }
 
@@ -92,25 +101,81 @@ struct ProfileHeaderView: View {
         .padding()
         .background(themeManager.secondaryBackgroundColor)
         .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(DesignSystem.Colors.primary.opacity(0.4), lineWidth: 2)
+        )
         .alert("Edit Display Name", isPresented: $showingEditName) {
             TextField("Enter your name", text: $newName)
             Button("Cancel", role: .cancel) {
                 newName = ""
             }
             Button("Save") {
-                saveNewName()
+                Task {
+                    await saveNewName()
+                }
             }
         } message: {
             Text("This name will be shown in your profile and chat messages")
         }
+        .alert("Inappropriate Name", isPresented: $showingModerationError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(moderationErrorMessage)
+        }
     }
 
-    private func saveNewName() {
+    private func saveNewName() async {
         let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedName.isEmpty {
-            profileStore.profile.displayName = trimmedName
+
+        guard !trimmedName.isEmpty else {
+            newName = ""
+            return
         }
-        newName = ""
+
+        // Moderate the username
+        do {
+            let moderationResult = try await chatManager.moderateContent(trimmedName)
+
+            if !moderationResult.isAllowed {
+                print("🚫 Username blocked: \(moderationResult.reason)")
+                await MainActor.run {
+                    moderationErrorMessage = "This name contains inappropriate content. Please choose a different name."
+                    showingModerationError = true
+                }
+                return
+            }
+
+            // Name is appropriate, save it
+            await MainActor.run {
+                profileStore.profile.displayName = trimmedName
+                newName = ""
+                showingEditName = false
+            }
+
+        } catch {
+            print("⚠️ Moderation error: \(error.localizedDescription)")
+            // If moderation fails, use fallback client-side check
+            if containsInappropriateContent(trimmedName) {
+                await MainActor.run {
+                    moderationErrorMessage = "This name contains inappropriate content. Please choose a different name."
+                    showingModerationError = true
+                }
+            } else {
+                // If both moderation and fallback pass, allow the name
+                await MainActor.run {
+                    profileStore.profile.displayName = trimmedName
+                    newName = ""
+                    showingEditName = false
+                }
+            }
+        }
+    }
+
+    private func containsInappropriateContent(_ text: String) -> Bool {
+        let lowercased = text.lowercased()
+        let bannedWords = ["fuck", "shit", "nigger", "cunt", "ass", "bitch", "dick", "pussy", "cock", "slut", "whore", "fag", "retard"]
+        return bannedWords.contains { lowercased.contains($0) }
     }
 }
 
@@ -133,6 +198,10 @@ struct QuickStatsView: View {
         .padding()
         .background(themeManager.secondaryBackgroundColor)
         .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(DesignSystem.Colors.primary.opacity(0.4), lineWidth: 2)
+        )
     }
 }
 
@@ -147,7 +216,7 @@ struct QuickStatCard: View {
         VStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.title2)
-                .foregroundColor(color ?? themeManager.accentColor)
+                .foregroundColor(color ?? DesignSystem.Colors.primary)
 
             Text(title)
                 .font(.caption)
@@ -160,14 +229,18 @@ struct QuickStatCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(themeManager.cardBackgroundColor)
+        .background(
+            themeManager.isDarkMode
+                ? Color(red: 0.22, green: 0.22, blue: 0.23)
+                : themeManager.cardBackgroundColor
+        )
         .cornerRadius(8)
-        .shadow(color: themeManager.isDarkMode ? .clear : .gray.opacity(0.3), radius: 1)
     }
 }
 
 struct ProfileMenuView: View {
     @ObservedObject var authManager: AuthenticationManager
+    @EnvironmentObject var profileStore: UserProfileStore
     @Binding var showingSettings: Bool
     @Binding var showingGoals: Bool
     @Binding var showingSavedRecipes: Bool
@@ -229,7 +302,8 @@ struct ProfileMenuView: View {
                 action: {
                     UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
                     UserDefaults.standard.removeObject(forKey: "userProfile")
-                    print("🔄 Onboarding reset - restart app to see onboarding")
+                    profileStore.resetProfile()
+                    print("🔄 Onboarding reset - you should now see onboarding")
                 }
             )
         }
@@ -247,7 +321,7 @@ struct ProfileMenuItem: View {
             HStack {
                 Image(systemName: icon)
                     .font(.title3)
-                    .foregroundColor(themeManager.accentColor)
+                    .foregroundColor(DesignSystem.Colors.primary)
                     .frame(width: 30)
 
                 Text(title)
@@ -261,8 +335,13 @@ struct ProfileMenuItem: View {
                     .foregroundColor(themeManager.secondaryTextColor)
             }
             .padding()
-            .background(themeManager.secondaryBackgroundColor.opacity(0.5))
+            .background(themeManager.secondaryBackgroundColor)
             .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(DesignSystem.Colors.primary.opacity(0.4), lineWidth: 2)
+            )
+            .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -508,6 +587,13 @@ struct SavedRecipesView: View {
                         ForEach(templateStore.mealTemplates) { template in
                             SavedRecipeRow(template: template) {
                                 selectedRecipe = template
+                            }
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    templateStore.deleteMealTemplate(template)
+                                } label: {
+                                    Label("Delete Recipe", systemImage: "trash")
+                                }
                             }
                         }
                         .onDelete(perform: deleteRecipes)

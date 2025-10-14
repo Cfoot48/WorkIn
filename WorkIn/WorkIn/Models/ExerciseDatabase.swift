@@ -118,7 +118,7 @@ struct ExerciseDatabase {
         ExerciseTemplate(name: "Cable Pull Through", muscleGroups: ["Glutes", "Hamstrings"], category: .legs, equipment: .cable),
         ExerciseTemplate(name: "Glute Kickback Machine", muscleGroups: ["Glutes"], category: .legs, equipment: .machine),
         ExerciseTemplate(name: "Cable Glute Kickback", muscleGroups: ["Glutes"], category: .legs, equipment: .cable),
-        ExerciseTemplate(name: "Abductor Machine", muscleGroups: ["Glutes"], category: .legs, equipment: .machine),
+        ExerciseTemplate(name: "Abductor Machine", muscleGroups: ["Abductors"], category: .legs, equipment: .machine),
         ExerciseTemplate(name: "Adductor Machine", muscleGroups: ["Inner Thighs"], category: .legs, equipment: .machine),
         ExerciseTemplate(name: "Walking Lunges", muscleGroups: ["Quadriceps", "Glutes"], category: .legs, equipment: .dumbbell),
         ExerciseTemplate(name: "Reverse Lunges", muscleGroups: ["Quadriceps", "Glutes"], category: .legs, equipment: .dumbbell),

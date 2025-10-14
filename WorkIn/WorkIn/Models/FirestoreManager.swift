@@ -186,7 +186,7 @@ class FirestoreManager: ObservableObject {
     }
 
     // MARK: - User Profile Operations
-    func saveUserProfile(_ profile: UserProfile) async throws {
+    func saveUserProfile(_ profile: UserProfile, hasCompletedOnboarding: Bool) async throws {
         guard let userID = currentUserID else {
             throw FirestoreError.userNotAuthenticated
         }
@@ -196,11 +196,11 @@ class FirestoreManager: ObservableObject {
             "email": profile.email,
             "height": profile.height,
             "weight": profile.weight,
-            "goalType": profile.goalType,
             "targetWeight": profile.targetWeight,
             "dailyCalorieGoal": profile.dailyCalorieGoal,
             "dailyProteinGoal": profile.dailyProteinGoal,
             "weeklyWorkoutGoal": profile.weeklyWorkoutGoal,
+            "hasCompletedOnboarding": hasCompletedOnboarding,
             "updatedAt": FieldValue.serverTimestamp()
         ]
 
@@ -215,7 +215,7 @@ class FirestoreManager: ObservableObject {
             .setData(profileData, merge: true)
     }
 
-    func fetchUserProfile() async throws -> UserProfile? {
+    func fetchUserProfile() async throws -> (profile: UserProfile?, hasCompletedOnboarding: Bool) {
         guard let userID = currentUserID else {
             throw FirestoreError.userNotAuthenticated
         }
@@ -226,8 +226,13 @@ class FirestoreManager: ObservableObject {
             .document("settings")
             .getDocument()
 
-        guard let data = document.data() else { return nil }
-        return try parseUserProfile(from: data)
+        guard let data = document.data() else {
+            return (profile: nil, hasCompletedOnboarding: false)
+        }
+
+        let hasCompletedOnboarding = data["hasCompletedOnboarding"] as? Bool ?? false
+        let profile = try parseUserProfile(from: data)
+        return (profile: profile, hasCompletedOnboarding: hasCompletedOnboarding)
     }
 
     // MARK: - Private Parsing Methods
@@ -464,42 +469,102 @@ struct UserProfile: Codable {
 class UserProfileStore: ObservableObject {
     @Published var profile: UserProfile {
         didSet {
-            saveProfile()
+            if shouldSave {
+                saveProfile()
+            }
         }
     }
 
     @Published var hasCompletedOnboarding: Bool {
         didSet {
-            UserDefaults.standard.set(hasCompletedOnboarding, forKey: "hasCompletedOnboarding")
+            if shouldSave {
+                saveProfile()
+            }
         }
     }
 
-    private let userDefaultsKey = "userProfile"
+    private let firestoreManager = FirestoreManager()
+    private var isSaving = false
+    private var shouldSave = false
 
     init() {
-        // Check if onboarding is complete
-        self.hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
+        // Create empty profile - will be loaded when user signs in
+        self.profile = UserProfile(
+            currentWeight: 0,
+            goalWeight: 0,
+            height: 0,
+            dailyCalories: 0,
+            dailyProtein: 0,
+            weeklyWorkoutGoal: 0
+        )
+        self.hasCompletedOnboarding = false
+        // Enable saving immediately so onboarding completion can save
+        self.shouldSave = true
+    }
 
-        // Try to load saved profile
-        if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
-           let decoded = try? JSONDecoder().decode(UserProfile.self, from: data) {
-            self.profile = decoded
-        } else {
-            // Create empty profile for onboarding
-            self.profile = UserProfile(
-                currentWeight: 0,
-                goalWeight: 0,
-                height: 0,
-                dailyCalories: 0,
-                dailyProtein: 0,
-                weeklyWorkoutGoal: 0
-            )
+    func resetProfile() {
+        shouldSave = false
+        hasCompletedOnboarding = false
+        profile = UserProfile(
+            currentWeight: 0,
+            goalWeight: 0,
+            height: 0,
+            dailyCalories: 0,
+            dailyProtein: 0,
+            weeklyWorkoutGoal: 0
+        )
+    }
+
+    // Load profile from Firestore when user signs in
+    func loadProfile() async {
+        shouldSave = false // Disable saving during load
+        do {
+            let result = try await firestoreManager.fetchUserProfile()
+            await MainActor.run {
+                if let loadedProfile = result.profile {
+                    self.profile = loadedProfile
+                    self.hasCompletedOnboarding = result.hasCompletedOnboarding
+                    print("✅ Profile loaded from Firestore: \(loadedProfile.displayName)")
+                } else {
+                    // No profile exists yet - user needs to complete onboarding
+                    self.hasCompletedOnboarding = false
+                    print("ℹ️ No profile found in Firestore - showing onboarding")
+                }
+                shouldSave = true // Enable saving after load completes
+            }
+        } catch {
+            print("❌ Error loading profile: \(error.localizedDescription)")
+            // On error, assume they need onboarding
+            await MainActor.run {
+                self.hasCompletedOnboarding = false
+                shouldSave = true
+            }
         }
     }
 
     private func saveProfile() {
-        if let encoded = try? JSONEncoder().encode(profile) {
-            UserDefaults.standard.set(encoded, forKey: userDefaultsKey)
+        // Prevent recursive saves
+        guard !isSaving else { return }
+        isSaving = true
+
+        Task {
+            do {
+                try await firestoreManager.saveUserProfile(profile, hasCompletedOnboarding: hasCompletedOnboarding)
+                print("✅ Profile saved to Firestore")
+            } catch {
+                print("❌ Error saving profile: \(error.localizedDescription)")
+            }
+            isSaving = false
+        }
+    }
+
+    // Explicit save function that can be called from onboarding
+    func saveProfileExplicitly() async {
+        do {
+            try await firestoreManager.saveUserProfile(profile, hasCompletedOnboarding: hasCompletedOnboarding)
+            print("✅ Profile explicitly saved to Firestore after onboarding")
+        } catch {
+            print("❌ Error saving profile after onboarding: \(error.localizedDescription)")
         }
     }
 }

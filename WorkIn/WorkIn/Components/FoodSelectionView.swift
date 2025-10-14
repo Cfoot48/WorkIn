@@ -1115,7 +1115,7 @@ struct ScannedFoodDetailView: View {
                         AsyncImage(url: imageURL) { phase in
                             switch phase {
                             case .empty:
-                                ProgressView()
+                                SwiftUI.ProgressView()
                                     .frame(height: 200)
                             case .success(let image):
                                 image

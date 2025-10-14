@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ProgressView: View {
+    @Binding var mainTabSelection: Int
     @EnvironmentObject var workoutStore: WorkoutStore
     @EnvironmentObject var nutritionStore: NutritionStore
     @EnvironmentObject var themeManager: ThemeManager
@@ -8,19 +9,22 @@ struct ProgressView: View {
     @State private var showingWorkoutDetail = false
     @State private var selectedTab = 0
     @State private var exerciseSearchText = ""
-    @State private var expandedCategories: Set<ExerciseCategory> = Set(ExerciseCategory.allCases)
+    @State private var expandedCategories: Set<ExerciseCategory> = []
 
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // Title
-                Text("Progress")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundColor(themeManager.primaryTextColor)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
+                // Custom header bar
+                HStack {
+                    Text("Progress")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(themeManager.primaryTextColor)
+
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
 
                 // Custom Tab Bar
                 HStack {
@@ -39,9 +43,21 @@ struct ProgressView: View {
                 TabView(selection: $selectedTab) {
                     exerciseTabContent
                         .tag(0)
+                        .gesture(
+                            DragGesture(minimumDistance: 50, coordinateSpace: .local)
+                                .onEnded { value in
+                                    handleSwipe(value: value, currentTab: 0)
+                                }
+                        )
 
                     nutritionTabContent
                         .tag(1)
+                        .gesture(
+                            DragGesture(minimumDistance: 50, coordinateSpace: .local)
+                                .onEnded { value in
+                                    handleSwipe(value: value, currentTab: 1)
+                                }
+                        )
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             }
@@ -67,6 +83,8 @@ struct ProgressView: View {
                     .background(themeManager.secondaryBackgroundColor)
                     .cornerRadius(12)
                     .id(workoutStore.workouts.count)
+
+                bestMuscleRanksSection
 
                 recentWorkoutsSection
 
@@ -97,6 +115,78 @@ struct ProgressView: View {
             .background(themeManager.backgroundColor)
         }
         .background(themeManager.backgroundColor)
+    }
+
+    private var bestMuscleRanksSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Best Muscle Ranks")
+                .font(.headline)
+                .padding(.horizontal)
+
+            if workoutStore.workouts.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "figure.strengthtraining.functional")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    Text("No workouts yet")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Text("Complete workouts to see your best muscle ranks")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(12)
+                .padding(.horizontal)
+            } else {
+                let muscleRanks = calculateBestMuscleRanks()
+
+                if muscleRanks.isEmpty {
+                    Text("Complete workouts with weighted exercises to earn ranks")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+                } else {
+                    VStack(spacing: 12) {
+                        MuscleGroupDiagram(muscleGroupRanks: muscleRanks)
+                            .frame(height: 350)
+                            .padding()
+
+                        // Legend showing rank colors
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Rank Legend:")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+
+                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                                ForEach(StrengthRank.allCases, id: \.self) { rank in
+                                    HStack(spacing: 6) {
+                                        Circle()
+                                            .fill(rank.glowColor)
+                                            .frame(width: 12, height: 12)
+                                        Text(rank.rawValue)
+                                            .font(.caption2)
+                                            .foregroundColor(.primary)
+                                        Spacer()
+                                    }
+                                }
+                            }
+                        }
+                        .padding()
+                    }
+                    .background(themeManager.secondaryBackgroundColor)
+                    .cornerRadius(12)
+                }
+            }
+        }
     }
 
     private var recentWorkoutsSection: some View {
@@ -282,6 +372,59 @@ struct ProgressView: View {
         }
     }
 
+    private func calculateBestMuscleRanks() -> [String: StrengthRank] {
+        var bestRanks: [String: StrengthRank] = [:]
+
+        // Get bodyweight - use most recent workout's bodyweight if available, otherwise default
+        let bodyWeight = workoutStore.workouts.first?.bodyWeight ?? 181.0
+
+        // Iterate through all workouts and exercises to find the best rank for each muscle
+        for workout in workoutStore.workouts {
+            let workoutBodyWeight = workout.bodyWeight ?? bodyWeight
+
+            for exercise in workout.exercises {
+                // Calculate rank for this exercise
+                let oneRepMaxes = exercise.sets.compactMap { set -> Double? in
+                    guard set.reps > 0 && set.weight > 0 else { return nil }
+                    if set.reps == 1 {
+                        return set.weight
+                    } else if set.reps >= 36 {
+                        let baseRatio = 18.0
+                        let extraReps = Double(set.reps) - 35.0
+                        return set.weight * (baseRatio + extraReps * 0.3)
+                    } else {
+                        return set.weight * (36.0 / (37.0 - Double(set.reps)))
+                    }
+                }
+
+                guard let maxOneRepMax = oneRepMaxes.max(), maxOneRepMax > 0 else { continue }
+
+                let exerciseRank = StrengthStandards.getRank(
+                    exerciseName: exercise.name,
+                    weight: maxOneRepMax,
+                    bodyWeight: workoutBodyWeight,
+                    equipment: exercise.equipment
+                )
+
+                // Assign this rank to all muscle groups worked by this exercise
+                // Keep the highest rank for each muscle across all workouts
+                for muscleGroup in exercise.muscleGroups {
+                    if let existingRank = bestRanks[muscleGroup] {
+                        let currentIndex = StrengthRank.allCases.firstIndex(of: exerciseRank) ?? 0
+                        let existingIndex = StrengthRank.allCases.firstIndex(of: existingRank) ?? 0
+                        if currentIndex > existingIndex {
+                            bestRanks[muscleGroup] = exerciseRank
+                        }
+                    } else {
+                        bestRanks[muscleGroup] = exerciseRank
+                    }
+                }
+            }
+        }
+
+        return bestRanks
+    }
+
     private func getUniqueExercises() -> [String] {
         let allExercises = workoutStore.workouts.flatMap { $0.exercises.map { $0.name } }
         return Array(Set(allExercises)).sorted()
@@ -354,6 +497,42 @@ struct ProgressView: View {
             .reduce(0) { total, nutrition in
                 total + nutrition[keyPath: keyPath]
             }
+    }
+
+    private func handleSwipe(value: DragGesture.Value, currentTab: Int) {
+        let horizontalAmount = value.translation.width
+        let verticalAmount = value.translation.height
+
+        // Only respond to horizontal swipes (ignore if too vertical)
+        if abs(horizontalAmount) > abs(verticalAmount) {
+            if horizontalAmount < 0 {
+                // Swipe left
+                if currentTab == 0 {
+                    // From Exercise tab, go to internal Nutrition tab
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        selectedTab = 1
+                    }
+                } else if currentTab == 1 {
+                    // From Nutrition tab, go to Chat main tab
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        mainTabSelection = 3
+                    }
+                }
+            } else {
+                // Swipe right
+                if currentTab == 0 {
+                    // From Exercise tab, go to Nutrition main tab
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        mainTabSelection = 1
+                    }
+                } else if currentTab == 1 {
+                    // From Nutrition tab, go to internal Exercise tab
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        selectedTab = 0
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -803,7 +982,7 @@ struct ExerciseCategorySection: View {
 }
 
 #Preview {
-    ProgressView()
+    ProgressView(mainTabSelection: .constant(2))
         .environmentObject(WorkoutStore())
         .environmentObject(NutritionStore())
         .environmentObject(ThemeManager())

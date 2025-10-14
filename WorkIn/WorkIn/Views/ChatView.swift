@@ -197,7 +197,17 @@ struct ChatMessageRow: View {
                             Text("(Developer)")
                                 .font(.caption2)
                                 .fontWeight(.semibold)
-                                .foregroundColor(.blue)
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [
+                                            Color(red: 0.6, green: 0.8, blue: 1.0),
+                                            Color(red: 0.8, green: 0.6, blue: 1.0),
+                                            Color(red: 1.0, green: 0.7, blue: 0.8)
+                                        ],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
                         }
                     }
 
@@ -233,7 +243,17 @@ struct ChatMessageRow: View {
                             Text("(Developer)")
                                 .font(.caption2)
                                 .fontWeight(.semibold)
-                                .foregroundColor(.blue)
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [
+                                            Color(red: 0.6, green: 0.8, blue: 1.0),
+                                            Color(red: 0.8, green: 0.6, blue: 1.0),
+                                            Color(red: 1.0, green: 0.7, blue: 0.8)
+                                        ],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
                         }
 
                         Text(message.username)

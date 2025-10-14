@@ -11,54 +11,63 @@ struct AuthenticationView: View {
     @State private var isSignUp = false
 
     var body: some View {
-        if authManager.isAuthenticated {
-            if !profileStore.hasCompletedOnboarding {
-                OnboardingView(
-                    profileStore: profileStore,
-                    isCompleted: $profileStore.hasCompletedOnboarding
-                )
-            } else {
-                ContentView()
-                    .environmentObject(authManager)
-                    .environmentObject(workoutStore)
-                    .environmentObject(nutritionStore)
-                    .environmentObject(themeManager)
-                    .environmentObject(profileStore)
-                    .environmentObject(chatManager)
-                    .environmentObject(templateStore)
-            }
-        } else {
-            NavigationView {
-                VStack(spacing: 20) {
-                    Image(systemName: "dumbbell.fill")
-                        .font(.system(size: 80))
-                        .foregroundColor(.blue)
-
-                    Text("WorkIn")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-
-                    Text("Track your fitness journey")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-
-                    Spacer()
-
-                    if isSignUp {
-                        SignUpView(authManager: authManager)
-                    } else {
-                        SignInView(authManager: authManager)
-                    }
-
-                    Button(action: { isSignUp.toggle() }) {
-                        Text(isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up")
-                            .font(.footnote)
-                            .foregroundColor(.blue)
-                    }
-
-                    Spacer()
+        Group {
+            if authManager.isAuthenticated {
+                if !profileStore.hasCompletedOnboarding {
+                    OnboardingView(
+                        profileStore: profileStore,
+                        isCompleted: $profileStore.hasCompletedOnboarding
+                    )
+                } else {
+                    ContentView()
+                        .environmentObject(authManager)
+                        .environmentObject(workoutStore)
+                        .environmentObject(nutritionStore)
+                        .environmentObject(themeManager)
+                        .environmentObject(profileStore)
+                        .environmentObject(chatManager)
+                        .environmentObject(templateStore)
+                        .transition(.opacity)
                 }
-                .padding()
+            } else {
+                NavigationView {
+                    VStack(spacing: 20) {
+                        Image(systemName: "dumbbell.fill")
+                            .font(.system(size: 80))
+                            .foregroundColor(.blue)
+
+                        Text("WorkIn")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+
+                        Text("Track your fitness journey")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        Spacer()
+
+                        if isSignUp {
+                            SignUpView(authManager: authManager)
+                        } else {
+                            SignInView(authManager: authManager)
+                        }
+
+                        Button(action: { isSignUp.toggle() }) {
+                            Text(isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up")
+                                .font(.footnote)
+                                .foregroundColor(.blue)
+                        }
+
+                        Spacer()
+                    }
+                    .padding()
+                }
+            }
+        }
+        .onChange(of: authManager.isAuthenticated) { newValue in
+            if !newValue {
+                // User signed out - reset profile
+                profileStore.resetProfile()
             }
         }
     }
@@ -89,7 +98,7 @@ struct SignInView: View {
 
             Button(action: signIn) {
                 if isLoading {
-                    ProgressView()
+                    SwiftUI.ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                 } else {
                     Text("Sign In")
@@ -161,7 +170,7 @@ struct SignUpView: View {
 
             Button(action: signUp) {
                 if isLoading {
-                    ProgressView()
+                    SwiftUI.ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                 } else {
                     Text("Sign Up")

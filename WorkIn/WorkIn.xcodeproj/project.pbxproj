@@ -7,10 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		07975D0EEE7E77F1DB349DF2 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE48EAE6F6D0776DC6A19556 /* DesignSystem.swift */; };
 		096F14F6162E4223BFE0C256 /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51EB66D2C21E44F3B5E796D1 /* ChatModels.swift */; };
+		0FF8F48F83571ADE0B3B566A /* DSExerciseTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 314A9117892DCE3EDDB5A0C8 /* DSExerciseTimer.swift */; };
 		209C01C20CFF411D8D23A4E0 /* AISettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F837B4C06614FCD987C22ED /* AISettingsView.swift */; };
+		2BE7CC875AC095ACFCFA2AA3 /* DSWeightTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 902046F6D6C4A6D9E56DFDE1 /* DSWeightTracker.swift */; };
+		3DEFC3793D9170DC46F659B8 /* DSGoalSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A317C1B869CB18A828E43FFA /* DSGoalSelector.swift */; };
+		4F625FB447FF99CA10FA2F78 /* DSProgressRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA31D09C73427721C03D4B4C /* DSProgressRing.swift */; };
 		58482D1DA4474FDA92CE6C83 /* AIAssistantView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F5BE3201B0140F5A0E08BAA /* AIAssistantView.swift */; };
 		927C8AD446D3464689337F92 /* AIAssistantModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AEED0DE65BA48BF995B1231 /* AIAssistantModels.swift */; };
+		943391454050B8B2578D7B54 /* DSCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA752B3DA23163221A6B9144 /* DSCard.swift */; };
 		CE1F71B02CAE00002900ABCD /* WorkInApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1F71AF2CAE00002900ABCD /* WorkInApp.swift */; };
 		CE1F71B22CAE00002900ABCD /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1F71B12CAE00002900ABCD /* ContentView.swift */; };
 		CE1F71B42CAE00002900ABCD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CE1F71B32CAE00002900ABCD /* Assets.xcassets */; };
@@ -29,6 +35,7 @@
 		CE1F71DD2CAE00002900ABCD /* FoodSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1F71DC2CAE00002900ABCD /* FoodSelectionView.swift */; };
 		CE1F71E02CAE00002900ABCD /* ActiveExerciseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1F71E12CAE00002900ABCD /* ActiveExerciseView.swift */; };
 		CE1F71E32CAE00002900ABCD /* VolumeChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1F71E42CAE00002900ABCD /* VolumeChartView.swift */; };
+		EAE89F8A5E656C85BAADEDEE /* DSButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB627283172195AFF2E5CD30 /* DSButton.swift */; };
 		EE3BB43151644F9499C93E66 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D28C2A30F6B4B448F729749 /* ChatView.swift */; };
 		F4011BBE2E8BAAA600B1C94E /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = F4011BBD2E8BAAA600B1C94E /* FirebaseAuth */; };
 		F4011BC02E8BAAA600B1C94E /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = F4011BBF2E8BAAA600B1C94E /* FirebaseFirestore */; };
@@ -39,14 +46,20 @@
 		F4011BCC2E8BB35A00B1C94E /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = F4011BCB2E8BB35A00B1C94E /* GoogleService-Info.plist */; };
 		F4011BD02E94D4FA00B1C94E /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = F4011BCF2E94D4FA00B1C94E /* FirebaseFunctions */; };
 		F4A93B5BA8488C7C4453B7C9 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4BA0F54FA2018BFFEAAEBD3 /* OnboardingView.swift */; };
+		FF66EE55DD44CC33BB22AA11 /* MuscleGroupDiagram.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF66 /* MuscleGroupDiagram.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		314A9117892DCE3EDDB5A0C8 /* DSExerciseTimer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DSExerciseTimer.swift; path = DSExerciseTimer.swift; sourceTree = "<group>"; };
 		3F837B4C06614FCD987C22ED /* AISettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISettingsView.swift; sourceTree = "<group>"; };
 		51EB66D2C21E44F3B5E796D1 /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModels.swift; sourceTree = "<group>"; };
 		7D28C2A30F6B4B448F729749 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		9AEED0DE65BA48BF995B1231 /* AIAssistantModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAssistantModels.swift; sourceTree = "<group>"; };
 		9F5BE3201B0140F5A0E08BAA /* AIAssistantView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAssistantView.swift; sourceTree = "<group>"; };
+		A317C1B869CB18A828E43FFA /* DSGoalSelector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DSGoalSelector.swift; path = DSGoalSelector.swift; sourceTree = "<group>"; };
+		EA31D09C73427721C03D4B4C /* DSProgressRing.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DSProgressRing.swift; path = DSProgressRing.swift; sourceTree = "<group>"; };
+		902046F6D6C4A6D9E56DFDE1 /* DSWeightTracker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DSWeightTracker.swift; path = DSWeightTracker.swift; sourceTree = "<group>"; };
+		BA752B3DA23163221A6B9144 /* DSCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DSCard.swift; path = DSCard.swift; sourceTree = "<group>"; };
 		CE1F71AC2CAE00002900ABCD /* WorkIn.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WorkIn.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE1F71AF2CAE00002900ABCD /* WorkInApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkInApp.swift; sourceTree = "<group>"; };
 		CE1F71B12CAE00002900ABCD /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -66,11 +79,14 @@
 		CE1F71DC2CAE00002900ABCD /* FoodSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodSelectionView.swift; sourceTree = "<group>"; };
 		CE1F71E12CAE00002900ABCD /* ActiveExerciseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveExerciseView.swift; sourceTree = "<group>"; };
 		CE1F71E42CAE00002900ABCD /* VolumeChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeChartView.swift; sourceTree = "<group>"; };
+		CE48EAE6F6D0776DC6A19556 /* DesignSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DesignSystem.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		F4011BC52E8BAE1000B1C94E /* AuthenticationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationManager.swift; sourceTree = "<group>"; };
 		F4011BC72E8BAE2500B1C94E /* AuthenticationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationView.swift; sourceTree = "<group>"; };
 		F4011BC92E8BB1D600B1C94E /* FirestoreManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirestoreManager.swift; sourceTree = "<group>"; };
 		F4011BCB2E8BB35A00B1C94E /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		F4BA0F54FA2018BFFEAAEBD3 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		FB627283172195AFF2E5CD30 /* DSButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DSButton.swift; path = DSButton.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55FF66 /* MuscleGroupDiagram.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuscleGroupDiagram.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -88,6 +104,30 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		4FDB13C59147CB679ECE9340 /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				CCB0C91C01C9D6D85A875FD3 /* Components */,
+				CE48EAE6F6D0776DC6A19556 /* DesignSystem.swift */,
+			);
+			name = DesignSystem;
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
+		CCB0C91C01C9D6D85A875FD3 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				FB627283172195AFF2E5CD30 /* DSButton.swift */,
+				BA752B3DA23163221A6B9144 /* DSCard.swift */,
+				314A9117892DCE3EDDB5A0C8 /* DSExerciseTimer.swift */,
+				A317C1B869CB18A828E43FFA /* DSGoalSelector.swift */,
+				EA31D09C73427721C03D4B4C /* DSProgressRing.swift */,
+				902046F6D6C4A6D9E56DFDE1 /* DSWeightTracker.swift */,
+			);
+			name = Components;
+			path = Components;
+			sourceTree = "<group>";
+		};
 		CE1F71A32CAE00002900ABCD = {
 			isa = PBXGroup;
 			children = (
@@ -115,6 +155,7 @@
 				CE1F71DF2CAE00002900ABCD /* Components */,
 				CE1F71B32CAE00002900ABCD /* Assets.xcassets */,
 				CE1F71B52CAE00002900ABCD /* Preview Content */,
+				4FDB13C59147CB679ECE9340 /* DesignSystem */,
 			);
 			path = WorkIn;
 			sourceTree = "<group>";
@@ -155,7 +196,8 @@
 				7D28C2A30F6B4B448F729749 /* ChatView.swift */,
 				9F5BE3201B0140F5A0E08BAA /* AIAssistantView.swift */,
 				3F837B4C06614FCD987C22ED /* AISettingsView.swift */,
-			);
+			
+				AA11BB22CC33DD44EE55FF66 /* MuscleGroupDiagram.swift */,);
 			path = Views;
 			sourceTree = "<group>";
 		};
@@ -270,7 +312,22 @@
 				927C8AD446D3464689337F92 /* AIAssistantModels.swift in Sources */,
 				58482D1DA4474FDA92CE6C83 /* AIAssistantView.swift in Sources */,
 				209C01C20CFF411D8D23A4E0 /* AISettingsView.swift in Sources */,
-			);
+				206058FBE38F2545989A26C1 /* DesignSystem.swift in Sources */,
+				DF837D224604E3030022DC2D /* DSButton.swift in Sources */,
+				88B7C27AD0AC2E1B4D7C9644 /* DSCard.swift in Sources */,
+				EB36D4EB64E7779FA7CE32E2 /* DSExerciseTimer.swift in Sources */,
+				EBFC76A832E53AD58FA920E3 /* DSGoalSelector.swift in Sources */,
+				0CF7F575B749FA460FAA0C5B /* DSProgressRing.swift in Sources */,
+				6F1DBF0286B6216C45F88C22 /* DSWeightTracker.swift in Sources */,
+				07975D0EEE7E77F1DB349DF2 /* DesignSystem.swift in Sources */,
+				EAE89F8A5E656C85BAADEDEE /* DSButton.swift in Sources */,
+				943391454050B8B2578D7B54 /* DSCard.swift in Sources */,
+				0FF8F48F83571ADE0B3B566A /* DSExerciseTimer.swift in Sources */,
+				3DEFC3793D9170DC46F659B8 /* DSGoalSelector.swift in Sources */,
+				4F625FB447FF99CA10FA2F78 /* DSProgressRing.swift in Sources */,
+				2BE7CC875AC095ACFCFA2AA3 /* DSWeightTracker.swift in Sources */,
+			
+				FF66EE55DD44CC33BB22AA11 /* MuscleGroupDiagram.swift in Sources */,);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */

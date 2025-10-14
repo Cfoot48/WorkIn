@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var selectedTab = 0
+    @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject var workoutStore: WorkoutStore
     @EnvironmentObject var nutritionStore: NutritionStore
     @EnvironmentObject var themeManager: ThemeManager
@@ -11,75 +12,18 @@ struct ContentView: View {
     @EnvironmentObject var templateStore: TemplateStore
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Custom top bar with safe area
-            VStack(spacing: 0) {
-                // Content bar
-                HStack {
-                    Text("WORKIN")
-                        .font(.system(size: 22, weight: .heavy, design: .default))
-                        .foregroundStyle(
-                            LinearGradient(
-                                gradient: Gradient(colors: [.cyan, Color(red: 0.3, green: 0.5, blue: 1.0)]),
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .padding(.leading, 20)
-
-                    Spacer()
-
-                    HStack(spacing: 10) {
-                        Image(systemName: "dumbbell.fill")
-                            .foregroundColor(.cyan)
-                        Image(systemName: "bolt.fill")
-                            .foregroundColor(Color(red: 0.3, green: 0.5, blue: 1.0))
-                    }
-                    .font(.system(size: 16))
-                    .padding(.trailing, 20)
-                }
-                .frame(height: 50)
-                .background(
-                    ZStack {
-                        themeManager.backgroundColor
-
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color.cyan.opacity(0.1),
-                                Color(red: 0.3, green: 0.5, blue: 1.0).opacity(0.1)
-                            ]),
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    }
-                )
-            }
-            .background(
-                ZStack {
-                    themeManager.backgroundColor
-
-                    LinearGradient(
-                        gradient: Gradient(colors: [
-                            Color.cyan.opacity(0.1),
-                            Color(red: 0.3, green: 0.5, blue: 1.0).opacity(0.1)
-                        ]),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                }
-                .ignoresSafeArea(edges: .top)
-            )
-            .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 2)
-
-            TabView(selection: $selectedTab) {
+        TabView(selection: $selectedTab) {
                 WorkoutView()
                     .environmentObject(workoutStore)
                     .environmentObject(themeManager)
                     .environmentObject(profileStore)
                     .environmentObject(templateStore)
                     .tabItem {
-                        Image(systemName: "dumbbell.fill")
-                        Text("Workouts")
+                        Label {
+                            Text("Workouts")
+                        } icon: {
+                            Image(systemName: selectedTab == 0 ? "dumbbell.fill" : "dumbbell")
+                        }
                     }
                     .tag(0)
 
@@ -89,18 +33,24 @@ struct ContentView: View {
                     .environmentObject(templateStore)
                     .environmentObject(profileStore)
                     .tabItem {
-                        Image(systemName: "fork.knife")
-                        Text("Nutrition")
+                        Label {
+                            Text("Nutrition")
+                        } icon: {
+                            Image(systemName: selectedTab == 1 ? "fork.knife.circle.fill" : "fork.knife")
+                        }
                     }
                     .tag(1)
 
-                ProgressView()
+                ProgressView(mainTabSelection: $selectedTab)
                     .environmentObject(workoutStore)
                     .environmentObject(nutritionStore)
                     .environmentObject(themeManager)
                     .tabItem {
-                        Image(systemName: "chart.line.uptrend.xyaxis")
-                        Text("Progress")
+                        Label {
+                            Text("Progress")
+                        } icon: {
+                            Image(systemName: selectedTab == 2 ? "chart.line.uptrend.xyaxis.circle.fill" : "chart.line.uptrend.xyaxis")
+                        }
                     }
                     .tag(2)
 
@@ -111,8 +61,11 @@ struct ContentView: View {
                     .environmentObject(themeManager)
                     .environmentObject(workoutStore)
                     .tabItem {
-                        Image(systemName: "message.fill")
-                        Text("Chat")
+                        Label {
+                            Text("Chat")
+                        } icon: {
+                            Image(systemName: selectedTab == 3 ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right")
+                        }
                     }
                     .tag(3)
 
@@ -122,16 +75,46 @@ struct ContentView: View {
                     .environmentObject(nutritionStore)
                     .environmentObject(profileStore)
                     .tabItem {
-                        Image(systemName: "person.fill")
-                        Text("Profile")
+                        Label {
+                            Text("Profile")
+                        } icon: {
+                            Image(systemName: selectedTab == 4 ? "person.circle.fill" : "person.circle")
+                        }
                     }
                     .tag(4)
             }
-            .accentColor(themeManager.accentColor)
-            .background(themeManager.backgroundColor)
-            .task {
-                await workoutStore.loadWorkouts()
-                nutritionStore.startFirebaseListeners()
+            .tint(DesignSystem.Colors.primary)
+            .background(DesignSystem.Colors.background(for: colorScheme))
+            .gesture(
+                DragGesture(minimumDistance: 50, coordinateSpace: .local)
+                    .onEnded { value in
+                        handleSwipe(value: value)
+                    }
+            )
+            .onAppear {
+                // Ensure we start on the Workouts tab
+                selectedTab = 0
+            }
+    }
+
+    private func handleSwipe(value: DragGesture.Value) {
+        let horizontalAmount = value.translation.width
+        let verticalAmount = value.translation.height
+
+        // Only respond to horizontal swipes (ignore if too vertical)
+        if abs(horizontalAmount) > abs(verticalAmount) {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                if horizontalAmount < 0 {
+                    // Swipe left - go to next tab
+                    if selectedTab < 4 {
+                        selectedTab += 1
+                    }
+                } else {
+                    // Swipe right - go to previous tab
+                    if selectedTab > 0 {
+                        selectedTab -= 1
+                    }
+                }
             }
         }
     }

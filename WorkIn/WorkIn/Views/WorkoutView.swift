@@ -5,12 +5,56 @@ struct WorkoutView: View {
     @EnvironmentObject var profileStore: UserProfileStore
     @EnvironmentObject var templateStore: TemplateStore
     @EnvironmentObject var themeManager: ThemeManager
+    @Environment(\.colorScheme) var colorScheme
     @State private var showingExerciseSelection = false
     @State private var showingAIWorkoutGenerator = false
 
     var body: some View {
         NavigationView {
-            VStack {
+            VStack(spacing: 0) {
+                // Custom header bar
+                if workoutStore.currentWorkout == nil {
+                    HStack {
+                        Text("Workouts")
+                            .font(DesignSystem.Typography.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
+
+                        Spacer()
+
+                        Button(action: { showingAIWorkoutGenerator = true }) {
+                            Image(systemName: "sparkles")
+                                .foregroundColor(.purple)
+                                .font(.system(size: 16))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(themeManager.secondaryBackgroundColor)
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.purple.opacity(0.4), lineWidth: 2)
+                                )
+                        }
+
+                        Button(action: { startQuickWorkout() }) {
+                            Text("Log Workout")
+                                .font(DesignSystem.Typography.body)
+                                .fontWeight(.semibold)
+                                .foregroundColor(DesignSystem.Colors.primary)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(themeManager.secondaryBackgroundColor)
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(DesignSystem.Colors.primary.opacity(0.4), lineWidth: 2)
+                                )
+                        }
+                    }
+                    .padding(.horizontal, DesignSystem.Spacing.lg)
+                    .padding(.vertical, DesignSystem.Spacing.sm)
+                }
+
                 if let currentWorkout = workoutStore.currentWorkout {
                     ActiveWorkoutView(
                         workout: currentWorkout,
@@ -22,33 +66,8 @@ struct WorkoutView: View {
                     WorkoutHistoryView(workouts: workoutStore.workouts, workoutStore: workoutStore, bodyWeight: profileStore.profile.currentWeight)
                 }
             }
-            .background(themeManager.backgroundColor)
-            .navigationTitle("Workouts")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    if workoutStore.currentWorkout == nil {
-                        Button(action: { showingAIWorkoutGenerator = true }) {
-                            Image(systemName: "sparkles")
-                                .foregroundColor(.purple)
-                        }
-                    }
-                }
-
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    if workoutStore.currentWorkout == nil {
-                        Button("New Workout") {
-                            startQuickWorkout()
-                        }
-                    } else {
-                        Button(action: { showingExerciseSelection = true }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "plus.circle.fill")
-                                Text("Add Exercise")
-                            }
-                        }
-                    }
-                }
-            }
+            .background(DesignSystem.Colors.background(for: colorScheme))
+            .navigationBarHidden(true)
             .sheet(isPresented: $showingExerciseSelection) {
                 ExerciseSelectionView(
                     workoutStore: workoutStore,
@@ -85,26 +104,330 @@ struct WorkoutHistoryView: View {
     @ObservedObject var workoutStore: WorkoutStore
     let bodyWeight: Double
     @EnvironmentObject var themeManager: ThemeManager
+    @Environment(\.colorScheme) var colorScheme
     @State private var selectedWorkout: Workout?
+    @State private var currentPage: Int = 0
 
     var body: some View {
-        ZStack {
-            themeManager.backgroundColor
-                .ignoresSafeArea()
+        if workouts.isEmpty {
+            // Empty state
+            VStack(spacing: DesignSystem.Spacing.xl) {
+                Spacer()
 
-            List {
-                ForEach(workouts) { workout in
-                    WorkoutRowView(workout: workout, bodyWeight: bodyWeight) {
+                Image(systemName: "dumbbell.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(DesignSystem.Colors.primary.opacity(0.3))
+
+                Text("No Workouts Yet")
+                    .font(DesignSystem.Typography.title1)
+                    .fontWeight(.bold)
+                    .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
+
+                Text("Start your first workout to see it here!")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                    .multilineTextAlignment(.center)
+
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(DesignSystem.Colors.background(for: colorScheme))
+        } else {
+            // Vertical scrolling with snap paging effect
+            GeometryReader { geometry in
+                VerticalPagingScrollView(
+                    pageHeight: geometry.size.height,
+                    workouts: workouts,
+                    bodyWeight: bodyWeight,
+                    onWorkoutTap: { workout in
                         selectedWorkout = workout
                     }
-                    .listRowBackground(themeManager.secondaryBackgroundColor)
-                }
-                .onDelete(perform: workoutStore.deleteWorkouts)
+                )
             }
-            .listStyle(PlainListStyle())
+            .ignoresSafeArea(.all, edges: .top)
+            .sheet(item: $selectedWorkout) { workout in
+                WorkoutDetailView(workout: workout)
+            }
+            .background(DesignSystem.Colors.background(for: colorScheme))
         }
-        .sheet(item: $selectedWorkout) { workout in
-            WorkoutDetailView(workout: workout)
+    }
+}
+
+// Proper vertical paging scroll view with correct frame sizing
+struct VerticalPagingScrollView: UIViewControllerRepresentable {
+    let pageHeight: CGFloat
+    let workouts: [Workout]
+    let bodyWeight: Double
+    let onWorkoutTap: (Workout) -> Void
+
+    func makeUIViewController(context: Context) -> UIPageViewController {
+        let pageVC = UIPageViewController(
+            transitionStyle: .scroll,
+            navigationOrientation: .vertical,
+            options: nil
+        )
+
+        pageVC.dataSource = context.coordinator
+        pageVC.delegate = context.coordinator
+
+        // Set initial page to first workout (most recent)
+        if !workouts.isEmpty {
+            let firstVC = context.coordinator.viewController(for: 0)
+            pageVC.setViewControllers([firstVC], direction: .forward, animated: false)
+        }
+
+        return pageVC
+    }
+
+    func updateUIViewController(_ pageVC: UIPageViewController, context: Context) {
+        // Update if workouts change
+        context.coordinator.workouts = workouts
+        context.coordinator.bodyWeight = bodyWeight
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(
+            workouts: workouts,
+            bodyWeight: bodyWeight,
+            pageHeight: pageHeight,
+            onWorkoutTap: onWorkoutTap
+        )
+    }
+
+    class Coordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
+        var workouts: [Workout]
+        var bodyWeight: Double
+        let pageHeight: CGFloat
+        let onWorkoutTap: (Workout) -> Void
+
+        init(workouts: [Workout], bodyWeight: Double, pageHeight: CGFloat, onWorkoutTap: @escaping (Workout) -> Void) {
+            self.workouts = workouts
+            self.bodyWeight = bodyWeight
+            self.pageHeight = pageHeight
+            self.onWorkoutTap = onWorkoutTap
+        }
+
+        func viewController(for index: Int) -> UIHostingController<FullPageWorkoutCard> {
+            let workout = workouts[index]
+            let card = FullPageWorkoutCard(
+                workout: workout,
+                bodyWeight: bodyWeight,
+                onTap: { [weak self] in
+                    self?.onWorkoutTap(workout)
+                }
+            )
+            let vc = UIHostingController(rootView: card)
+            vc.view.tag = index
+            return vc
+        }
+
+        func pageViewController(_ pageViewController: UIPageViewController, viewControllerBefore viewController: UIViewController) -> UIViewController? {
+            guard let index = viewController.view.tag as Int?, index > 0 else {
+                return nil
+            }
+            return self.viewController(for: index - 1)
+        }
+
+        func pageViewController(_ pageViewController: UIPageViewController, viewControllerAfter viewController: UIViewController) -> UIViewController? {
+            guard let index = viewController.view.tag as Int?, index < workouts.count - 1 else {
+                return nil
+            }
+            return self.viewController(for: index + 1)
+        }
+    }
+}
+
+struct FullPageWorkoutCard: View {
+    let workout: Workout
+    let bodyWeight: Double
+    let onTap: () -> Void
+    @Environment(\.colorScheme) var colorScheme
+
+    private var workoutRank: StrengthRank? {
+        workout.getHighestRank(bodyWeight: bodyWeight)
+    }
+
+    private var muscleGroupRanks: [String: StrengthRank] {
+        var ranks: [String: StrengthRank] = [:]
+
+        // For each exercise, calculate its rank and assign to its muscle groups
+        for exercise in workout.exercises {
+            // Calculate the rank for this exercise
+            let oneRepMaxes = exercise.sets.compactMap { set -> Double? in
+                guard set.reps > 0 && set.weight > 0 else { return nil }
+                if set.reps == 1 {
+                    return set.weight
+                } else if set.reps >= 36 {
+                    let baseRatio = 18.0
+                    let extraReps = Double(set.reps) - 35.0
+                    return set.weight * (baseRatio + extraReps * 0.3)
+                } else {
+                    return set.weight * (36.0 / (37.0 - Double(set.reps)))
+                }
+            }
+
+            guard let maxOneRepMax = oneRepMaxes.max(), maxOneRepMax > 0 else { continue }
+
+            let exerciseRank = StrengthStandards.getRank(
+                exerciseName: exercise.name,
+                weight: maxOneRepMax,
+                bodyWeight: bodyWeight,
+                equipment: exercise.equipment
+            )
+
+            // Assign this rank to all muscle groups worked by this exercise
+            // If a muscle group already has a rank, keep the higher one
+            for muscleGroup in exercise.muscleGroups {
+                if let existingRank = ranks[muscleGroup] {
+                    let currentIndex = StrengthRank.allCases.firstIndex(of: exerciseRank) ?? 0
+                    let existingIndex = StrengthRank.allCases.firstIndex(of: existingRank) ?? 0
+                    if currentIndex > existingIndex {
+                        ranks[muscleGroup] = exerciseRank
+                    }
+                } else {
+                    ranks[muscleGroup] = exerciseRank
+                }
+            }
+        }
+
+        return ranks
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                // Top section with workout name and date
+                VStack(spacing: DesignSystem.Spacing.xs) {
+                    Text(workout.name)
+                        .font(DesignSystem.Typography.largeTitle)
+                        .fontWeight(.bold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
+                        .multilineTextAlignment(.center)
+
+                    Text(workout.date, style: .date)
+                        .font(DesignSystem.Typography.subheadline)
+                        .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                }
+                .padding(.top, DesignSystem.Spacing.xxl)
+                .padding(.horizontal, DesignSystem.Spacing.lg)
+
+                Spacer()
+
+                // Main content: Muscle diagram and rank badge
+                ZStack {
+                    // Muscle group diagram with rank-based colors
+                    MuscleGroupDiagram(muscleGroupRanks: muscleGroupRanks)
+                        .frame(width: geometry.size.width * 0.6, height: geometry.size.height * 0.5)
+                        .padding(DesignSystem.Spacing.xl)
+
+                    // Rank badge overlay (center-right)
+                    if let rank = workoutRank {
+                        VStack {
+                            Spacer()
+                            HStack {
+                                Spacer()
+                                VStack(spacing: DesignSystem.Spacing.sm) {
+                                    Image(rank.badgeImageName)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(width: 120, height: 120)
+                                        .shadow(color: rank.glowColor.opacity(0.9 * rank.glowIntensity), radius: 25 * rank.glowIntensity, x: 0, y: 0)
+                                        .shadow(color: rank.glowColor.opacity(0.7 * rank.glowIntensity), radius: 15 * rank.glowIntensity, x: 0, y: 0)
+                                        .shadow(color: rank.glowColor.opacity(0.5 * rank.glowIntensity), radius: 8 * rank.glowIntensity, x: 0, y: 0)
+
+                                    Text(rank.rawValue)
+                                        .font(DesignSystem.Typography.title2)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
+                                        .shadow(color: rank.glowColor.opacity(0.3), radius: 4)
+                                }
+                                .padding(DesignSystem.Spacing.xl)
+                                .background(
+                                    Circle()
+                                        .fill(rank.glowColor.opacity(0.1))
+                                        .blur(radius: 30)
+                                )
+                            }
+                            Spacer()
+                        }
+                    }
+                }
+
+                Spacer()
+
+                // Bottom section with stats
+                VStack(spacing: DesignSystem.Spacing.md) {
+                    // Duration and exercise count
+                    HStack(spacing: DesignSystem.Spacing.xxl) {
+                        VStack(spacing: DesignSystem.Spacing.xxs) {
+                            Text("\(formatDuration(workout.duration))")
+                                .font(DesignSystem.Typography.title1)
+                                .fontWeight(.bold)
+                                .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
+                            Text("Duration")
+                                .font(DesignSystem.Typography.caption1)
+                                .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                        }
+
+                        Divider()
+                            .frame(height: 40)
+
+                        VStack(spacing: DesignSystem.Spacing.xxs) {
+                            Text("\(workout.exercises.count)")
+                                .font(DesignSystem.Typography.title1)
+                                .fontWeight(.bold)
+                                .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
+                            Text("Exercises")
+                                .font(DesignSystem.Typography.caption1)
+                                .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                        }
+
+                        Divider()
+                            .frame(height: 40)
+
+                        VStack(spacing: DesignSystem.Spacing.xxs) {
+                            let totalSets = workout.exercises.reduce(0) { $0 + $1.sets.count }
+                            Text("\(totalSets)")
+                                .font(DesignSystem.Typography.title1)
+                                .fontWeight(.bold)
+                                .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
+                            Text("Sets")
+                                .font(DesignSystem.Typography.caption1)
+                                .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                        }
+                    }
+                    .padding(DesignSystem.Spacing.lg)
+                    .background(
+                        RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
+                            .fill(DesignSystem.Colors.card(for: colorScheme))
+                            .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
+                    )
+
+                    // Tap to view details hint
+                    Text("Tap to view details")
+                        .font(DesignSystem.Typography.caption1)
+                        .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                        .padding(.bottom, DesignSystem.Spacing.xs)
+                }
+                .padding(.horizontal, DesignSystem.Spacing.lg)
+                .padding(.bottom, DesignSystem.Spacing.xxl)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(DesignSystem.Colors.background(for: colorScheme))
+            .contentShape(Rectangle())
+            .onTapGesture {
+                onTap()
+            }
+        }
+    }
+
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let hours = Int(duration) / 3600
+        let minutes = Int(duration) % 3600 / 60
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        } else {
+            return "\(minutes)m"
         }
     }
 }
@@ -114,15 +437,20 @@ struct WorkoutRowView: View {
     let bodyWeight: Double
     let onTap: () -> Void
     @EnvironmentObject var themeManager: ThemeManager
+    @Environment(\.colorScheme) var colorScheme
+
+    private var workoutRank: StrengthRank? {
+        workout.getHighestRank(bodyWeight: bodyWeight)
+    }
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
             HStack {
                 Text(workout.name)
-                    .font(.headline)
+                    .font(DesignSystem.Typography.bodyBold)
                     .fontWeight(.semibold)
-                    .foregroundColor(themeManager.primaryTextColor)
+                    .foregroundColor(DesignSystem.Colors.primary)
 
                 Spacer()
 
@@ -141,7 +469,7 @@ struct WorkoutRowView: View {
                 }
 
                 // Large rank badge in the center
-                if let rank = workout.getHighestRank(bodyWeight: bodyWeight) {
+                if let rank = workoutRank {
                     Image(rank.badgeImageName)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
@@ -162,7 +490,7 @@ struct WorkoutRowView: View {
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .onAppear {
-                if workout.getHighestRank(bodyWeight: bodyWeight) == nil {
+                if workoutRank == nil {
                     print("🏋️ WorkoutRowView: No rank found for workout '\(workout.name)' (bodyweight: \(bodyWeight) lbs)")
                 }
             }
@@ -186,9 +514,27 @@ struct WorkoutRowView: View {
                 }
             }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, DesignSystem.Spacing.xs)
+            .padding(.horizontal, DesignSystem.Spacing.sm)
+            .background(
+                ZStack {
+                    DesignSystem.Colors.card(for: colorScheme)
+                    if let rank = workoutRank {
+                        rank.glowColor.opacity(0.05)
+                    } else {
+                        DesignSystem.Colors.primary.opacity(0.03)
+                    }
+                }
+            )
+            .cornerRadius(DesignSystem.CornerRadius.md)
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                    .stroke((workoutRank?.glowColor ?? DesignSystem.Colors.primary).opacity(0.3), lineWidth: 1)
+            )
+            .shadow(color: (workoutRank?.glowColor ?? DesignSystem.Colors.primary).opacity(0.15), radius: 8, x: 0, y: 4)
         }
         .buttonStyle(PlainButtonStyle())
+        .padding(.horizontal, 4)
     }
 
     private func formatDuration(_ duration: TimeInterval) -> String {
@@ -204,16 +550,21 @@ struct WorkoutRowView: View {
 
 struct ExerciseBadge: View {
     let exerciseName: String
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         Text(exerciseName)
-            .font(.caption)
+            .font(DesignSystem.Typography.caption1)
             .lineLimit(1)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Color.blue.opacity(0.1))
-            .foregroundColor(.blue)
-            .cornerRadius(8)
+            .padding(.horizontal, DesignSystem.Spacing.xs)
+            .padding(.vertical, DesignSystem.Spacing.xxs)
+            .background(DesignSystem.Colors.primary.opacity(0.1))
+            .foregroundColor(DesignSystem.Colors.primary)
+            .cornerRadius(DesignSystem.CornerRadius.xs)
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.xs)
+                    .stroke(DesignSystem.Colors.primary.opacity(0.3), lineWidth: 0.5)
+            )
     }
 }
 
@@ -229,6 +580,8 @@ struct ActiveWorkoutView: View {
     @ObservedObject var workoutStore: WorkoutStore
     @Binding var showingExerciseSelection: Bool
     let bodyWeight: Double
+    @EnvironmentObject var themeManager: ThemeManager
+    @Environment(\.colorScheme) var colorScheme
     @State private var startTime = Date()
     @State private var timer: Timer?
     @State private var elapsedTime: TimeInterval = 0
@@ -241,19 +594,47 @@ struct ActiveWorkoutView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                workoutHeader
+        VStack(spacing: 0) {
+            // Top header with Add Exercise button
+            HStack {
+                Spacer()
 
-                if workout.exercises.isEmpty {
-                    emptyExercisesView
-                } else {
-                    exercisesSection
+                Button(action: { showingExerciseSelection = true }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                        Text("Add Exercise")
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(DesignSystem.Colors.primary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(themeManager.secondaryBackgroundColor)
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(DesignSystem.Colors.primary.opacity(0.4), lineWidth: 2)
+                    )
                 }
-
-                actionButtons
             }
-            .padding()
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+            .background(DesignSystem.Colors.background(for: colorScheme))
+
+            ScrollView {
+                VStack(spacing: 20) {
+                    workoutHeader
+
+                    if workout.exercises.isEmpty {
+                        emptyExercisesView
+                    } else {
+                        exercisesSection
+                    }
+
+                    actionButtons
+                }
+                .padding()
+            }
         }
         .onTapGesture {
             hideKeyboard()
@@ -309,23 +690,33 @@ struct ActiveWorkoutView: View {
     }
 
     private var workoutHeader: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: DesignSystem.Spacing.xs) {
             Text(workout.name)
-                .font(.title)
+                .font(DesignSystem.Typography.largeTitle)
                 .fontWeight(.bold)
+                .foregroundColor(DesignSystem.Colors.primary)
 
             Text("Duration: \(formatDuration(elapsedTime))")
-                .font(.title3)
-                .foregroundColor(.blue)
+                .font(DesignSystem.Typography.title3)
+                .foregroundColor(DesignSystem.Colors.primary)
                 .fontWeight(.medium)
 
             Text("\(workout.exercises.count) exercises")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+                .font(DesignSystem.Typography.subheadline)
+                .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
         }
-        .padding()
-        .background(Color.gray.opacity(0.1))
-        .cornerRadius(12)
+        .padding(DesignSystem.Spacing.md)
+        .background(
+            ZStack {
+                DesignSystem.Colors.card(for: colorScheme)
+                DesignSystem.Colors.primary.opacity(0.05)
+            }
+        )
+        .cornerRadius(DesignSystem.CornerRadius.md)
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                .stroke(DesignSystem.Colors.primary.opacity(0.3), lineWidth: 1)
+        )
     }
 
     private var emptyExercisesView: some View {
@@ -372,11 +763,15 @@ struct ActiveWorkoutView: View {
                         Text("Cancel")
                             .fontWeight(.semibold)
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.red)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.red)
+                    .background(themeManager.secondaryBackgroundColor)
                     .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.red.opacity(0.4), lineWidth: 2)
+                    )
                 }
 
                 Button(action: finishWorkout) {
@@ -385,11 +780,15 @@ struct ActiveWorkoutView: View {
                         Text("Finish")
                             .fontWeight(.semibold)
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.green)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.green)
+                    .background(themeManager.secondaryBackgroundColor)
                     .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.green.opacity(0.4), lineWidth: 2)
+                    )
                 }
             }
         }

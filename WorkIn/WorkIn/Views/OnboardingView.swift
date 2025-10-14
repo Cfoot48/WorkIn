@@ -4,9 +4,13 @@ struct OnboardingView: View {
     @ObservedObject var profileStore: UserProfileStore
     @Binding var isCompleted: Bool
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var chatManager: ChatManager
+    @Environment(\.colorScheme) var colorScheme
 
     @State private var currentPage = 0
     @State private var displayName = ""
+    @State private var showingModerationError = false
+    @State private var moderationErrorMessage = ""
     @State private var height = ""
     @State private var currentWeight = ""
     @State private var goalWeight = ""
@@ -19,41 +23,22 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            // Gradient background
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    themeManager.backgroundColor,
-                    Color.cyan.opacity(0.05),
-                    Color(red: 0.3, green: 0.5, blue: 1.0).opacity(0.08),
-                    themeManager.backgroundColor
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            // Background
+            DesignSystem.Colors.background(for: colorScheme)
+                .ignoresSafeArea()
 
             VStack {
                 // Progress indicator
-                HStack(spacing: 8) {
+                HStack(spacing: DesignSystem.Spacing.xs) {
                     ForEach(0..<7) { index in
                         Capsule()
-                            .fill(index <= currentPage ?
-                                LinearGradient(
-                                    gradient: Gradient(colors: [.cyan, Color(red: 0.3, green: 0.5, blue: 1.0)]),
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                ) :
-                                LinearGradient(
-                                    gradient: Gradient(colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.3)]),
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
+                            .fill(index <= currentPage ? DesignSystem.Colors.primary : Color.gray.opacity(0.3))
                             .frame(height: 6)
-                            .shadow(color: index <= currentPage ? Color.cyan.opacity(0.3) : .clear, radius: 4)
+                            .shadow(color: index <= currentPage ? DesignSystem.Colors.primary.opacity(0.3) : .clear, radius: 4)
+                            .animation(DesignSystem.Animation.spring, value: currentPage)
                     }
                 }
-                .padding()
+                .padding(DesignSystem.Spacing.md)
 
             TabView(selection: $currentPage) {
                 WelcomePage()
@@ -104,65 +89,54 @@ struct OnboardingView: View {
 
                 RatingAndContactPage()
                     .tag(6)
+                    .onAppear {
+                        hideKeyboard()
+                    }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .animation(.easeInOut, value: currentPage)
 
                 // Navigation buttons
-                HStack(spacing: 16) {
+                HStack(spacing: DesignSystem.Spacing.md) {
                     if currentPage > 0 {
-                        Button(action: {
+                        DSButton("Back", icon: "chevron.left", style: .outline, size: .large) {
                             withAnimation {
                                 currentPage -= 1
                             }
-                        }) {
-                            HStack {
-                                Image(systemName: "chevron.left")
-                                Text("Back")
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(themeManager.secondaryBackgroundColor)
-                            .foregroundColor(themeManager.primaryTextColor)
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.cyan.opacity(0.3), lineWidth: 1)
-                            )
                         }
                     }
 
-                    Button(action: {
+                    DSButton(
+                        currentPage < 6 ? "Next" : "Complete",
+                        icon: currentPage < 6 ? "chevron.right" : "checkmark",
+                        style: .primary,
+                        size: .large
+                    ) {
                         if currentPage < 6 {
                             withAnimation {
                                 currentPage += 1
                             }
                         } else {
-                            completeOnboarding()
+                            Task {
+                                await completeOnboarding()
+                            }
                         }
-                    }) {
-                        HStack {
-                            Text(currentPage < 6 ? "Next" : "Complete")
-                            Image(systemName: currentPage < 6 ? "chevron.right" : "checkmark")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(
-                            LinearGradient(
-                                gradient: Gradient(colors: [.cyan, Color(red: 0.3, green: 0.5, blue: 1.0)]),
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
-                        .shadow(color: Color.cyan.opacity(0.4), radius: 8, x: 0, y: 4)
                     }
                     .disabled(!canProceed)
                     .opacity(canProceed ? 1.0 : 0.5)
                 }
-                .padding()
+                .padding(DesignSystem.Spacing.lg)
             }
+        }
+        .alert("Inappropriate Name", isPresented: $showingModerationError) {
+            Button("OK", role: .cancel) {
+                // Go back to display name page
+                withAnimation {
+                    currentPage = 1
+                }
+            }
+        } message: {
+            Text(moderationErrorMessage)
         }
     }
 
@@ -183,7 +157,7 @@ struct OnboardingView: View {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
-    private func completeOnboarding() {
+    private func completeOnboarding() async {
         guard let heightValue = Double(height),
               let currentWeightValue = Double(currentWeight),
               let goalWeightValue = Double(goalWeight),
@@ -191,6 +165,31 @@ struct OnboardingView: View {
               let weeklyWorkoutsValue = Int(weeklyWorkouts),
               let proteinValue = Int(proteinGoal) else {
             return
+        }
+
+        // Moderate the display name before allowing onboarding completion
+        do {
+            let moderationResult = try await chatManager.moderateContent(displayName)
+
+            if !moderationResult.isAllowed {
+                print("🚫 Onboarding: Username blocked: \(moderationResult.reason)")
+                await MainActor.run {
+                    moderationErrorMessage = "The display name '\(displayName)' contains inappropriate content. Please choose a different name."
+                    showingModerationError = true
+                }
+                return
+            }
+
+        } catch {
+            print("⚠️ Onboarding: Moderation error: \(error.localizedDescription)")
+            // If moderation fails, use fallback client-side check
+            if containsInappropriateContent(displayName) {
+                await MainActor.run {
+                    moderationErrorMessage = "The display name '\(displayName)' contains inappropriate content. Please choose a different name."
+                    showingModerationError = true
+                }
+                return
+            }
         }
 
         // Calculate calories based on goal
@@ -205,17 +204,27 @@ struct OnboardingView: View {
         )
 
         // Update profile
-        profileStore.profile.displayName = displayName
-        profileStore.profile.height = heightValue
-        profileStore.profile.currentWeight = currentWeightValue
-        profileStore.profile.goalWeight = goalWeightValue
-        profileStore.profile.dailyCalories = calculatedCalories
-        profileStore.profile.dailyProtein = proteinValue
-        profileStore.profile.weeklyWorkoutGoal = weeklyWorkoutsValue
+        await MainActor.run {
+            profileStore.profile.displayName = displayName
+            profileStore.profile.height = heightValue
+            profileStore.profile.currentWeight = currentWeightValue
+            profileStore.profile.goalWeight = goalWeightValue
+            profileStore.profile.dailyCalories = calculatedCalories
+            profileStore.profile.dailyProtein = proteinValue
+            profileStore.profile.weeklyWorkoutGoal = weeklyWorkoutsValue
 
-        // Mark onboarding as complete
-        isCompleted = true
-        UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
+            // Mark onboarding as complete
+            isCompleted = true
+        }
+
+        // Force save profile to Firestore after onboarding completes
+        await profileStore.saveProfileExplicitly()
+    }
+
+    private func containsInappropriateContent(_ text: String) -> Bool {
+        let lowercased = text.lowercased()
+        let bannedWords = ["fuck", "shit", "nigger", "cunt", "ass", "bitch", "dick", "pussy", "cock", "slut", "whore", "fag", "retard"]
+        return bannedWords.contains { lowercased.contains($0) }
     }
 
     private func calculateDailyCalories(
@@ -241,19 +250,24 @@ struct OnboardingView: View {
         // Apply activity multiplier
         let tdee = bmr * activityLevel.multiplier
 
-        // Determine if cutting or bulking
+        // Determine if cutting, bulking, or maintaining
         let isDeficit = goalWeight < currentWeight
+        let isMaintaining = abs(goalWeight - currentWeight) < 1.0 // Within 1 lb is maintenance
 
         // Calculate calorie adjustment based on weight change rate
-        // Safe ranges: 250-1000 cal deficit, 200-500 cal surplus
+        // Safe ranges: 250-1000 cal deficit, 200-500 cal surplus, 0 for maintenance
         let calorieAdjustment: Double
-        switch weightChangeRate {
-        case .slow:
-            calorieAdjustment = isDeficit ? -250 : 200  // 0.5 lbs/week
-        case .moderate:
-            calorieAdjustment = isDeficit ? -500 : 300  // 1 lb/week
-        case .fast:
-            calorieAdjustment = isDeficit ? -750 : 400  // 1.5 lbs/week
+        if isMaintaining {
+            calorieAdjustment = 0  // No adjustment for maintenance
+        } else {
+            switch weightChangeRate {
+            case .slow:
+                calorieAdjustment = isDeficit ? -250 : 200  // 0.5 lbs/week
+            case .moderate:
+                calorieAdjustment = isDeficit ? -500 : 300  // 1 lb/week
+            case .fast:
+                calorieAdjustment = isDeficit ? -750 : 400  // 1.5 lbs/week
+            }
         }
 
         let targetCalories = tdee + calorieAdjustment
@@ -303,91 +317,76 @@ enum WeightChangeRate: String, CaseIterable, Codable {
 // MARK: - Onboarding Pages
 
 struct WelcomePage: View {
-    @EnvironmentObject var themeManager: ThemeManager
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
-        VStack(spacing: 32) {
+        VStack(spacing: DesignSystem.Spacing.xxxl) {
             Spacer()
 
             ZStack {
                 Circle()
-                    .fill(
-                        LinearGradient(
-                            gradient: Gradient(colors: [Color.cyan.opacity(0.2), Color(red: 0.3, green: 0.5, blue: 1.0).opacity(0.2)]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(DesignSystem.Colors.primary.opacity(0.15))
                     .frame(width: 200, height: 200)
                     .blur(radius: 30)
 
                 Image(systemName: "figure.strengthtraining.traditional")
                     .font(.system(size: 100))
-                    .foregroundStyle(
-                        LinearGradient(
-                            gradient: Gradient(colors: [.cyan, Color(red: 0.3, green: 0.5, blue: 1.0)]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .shadow(color: .cyan.opacity(0.3), radius: 10)
+                    .foregroundColor(DesignSystem.Colors.primary)
+                    .shadow(color: DesignSystem.Colors.primary.opacity(0.3), radius: 10)
             }
 
-            VStack(spacing: 16) {
+            VStack(spacing: DesignSystem.Spacing.md) {
                 Text("Welcome to")
-                    .font(.title2)
-                    .foregroundColor(themeManager.secondaryTextColor)
+                    .font(DesignSystem.Typography.title2)
+                    .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
 
                 Text("WORKIN")
                     .font(.system(size: 48, weight: .heavy, design: .default))
-                    .foregroundStyle(
-                        LinearGradient(
-                            gradient: Gradient(colors: [.cyan, Color(red: 0.3, green: 0.5, blue: 1.0)]),
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .shadow(color: .cyan.opacity(0.3), radius: 8)
+                    .foregroundColor(DesignSystem.Colors.primary)
+                    .shadow(color: DesignSystem.Colors.primary.opacity(0.3), radius: 8)
 
                 Text("Let's personalize your fitness journey")
-                    .font(.title3)
-                    .foregroundColor(themeManager.secondaryTextColor)
+                    .font(DesignSystem.Typography.title3)
+                    .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal)
+                    .padding(.horizontal, DesignSystem.Spacing.lg)
             }
 
             Spacer()
         }
-        .padding()
+        .padding(DesignSystem.Spacing.lg)
     }
 }
 
 struct DisplayNamePage: View {
     @Binding var displayName: String
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: DesignSystem.Spacing.xl) {
             Text("Choose Your Name")
-                .font(.title2)
+                .font(DesignSystem.Typography.title2)
                 .fontWeight(.bold)
+                .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
 
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text("Display Name")
-                        .font(.headline)
+                        .font(DesignSystem.Typography.bodyBold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
                     TextField("Enter your name", text: $displayName)
                         .textFieldStyle(.roundedBorder)
                         .autocapitalization(.words)
                     Text("This will be shown in your profile and chat messages")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(DesignSystem.Typography.caption1)
+                        .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
                 }
             }
-            .padding()
+            .padding(DesignSystem.Spacing.lg)
 
             Spacer()
         }
-        .padding()
+        .padding(DesignSystem.Spacing.lg)
     }
 }
 
@@ -396,44 +395,50 @@ struct BodyStatsPage: View {
     @Binding var currentWeight: String
     @Binding var age: String
     @Binding var gender: Gender
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: DesignSystem.Spacing.xl) {
             Text("Tell us about yourself")
-                .font(.title2)
+                .font(DesignSystem.Typography.title2)
                 .fontWeight(.bold)
+                .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
 
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text("Height (inches)")
-                        .font(.headline)
+                        .font(DesignSystem.Typography.bodyBold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
                     TextField("72", text: $height)
                         .keyboardType(.decimalPad)
                         .textFieldStyle(.roundedBorder)
                     Text("Example: 6'0\" = 72 inches")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(DesignSystem.Typography.caption1)
+                        .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text("Current Weight (lbs)")
-                        .font(.headline)
+                        .font(DesignSystem.Typography.bodyBold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
                     TextField("180", text: $currentWeight)
                         .keyboardType(.decimalPad)
                         .textFieldStyle(.roundedBorder)
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text("Age")
-                        .font(.headline)
+                        .font(DesignSystem.Typography.bodyBold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
                     TextField("25", text: $age)
                         .keyboardType(.numberPad)
                         .textFieldStyle(.roundedBorder)
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text("Gender")
-                        .font(.headline)
+                        .font(DesignSystem.Typography.bodyBold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
                     Picker("Gender", selection: $gender) {
                         ForEach(Gender.allCases, id: \.self) { gender in
                             Text(gender.rawValue).tag(gender)
@@ -442,11 +447,11 @@ struct BodyStatsPage: View {
                     .pickerStyle(.segmented)
                 }
             }
-            .padding()
+            .padding(DesignSystem.Spacing.lg)
 
             Spacer()
         }
-        .padding()
+        .padding(DesignSystem.Spacing.lg)
     }
 }
 
@@ -454,6 +459,7 @@ struct GoalWeightPage: View {
     let currentWeight: String
     @Binding var goalWeight: String
     @Binding var weightChangeRate: WeightChangeRate
+    @Environment(\.colorScheme) var colorScheme
 
     var goalType: String {
         guard let current = Double(currentWeight),
@@ -471,21 +477,23 @@ struct GoalWeightPage: View {
     }
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: DesignSystem.Spacing.xl) {
             Text("What's your goal?")
-                .font(.title2)
+                .font(DesignSystem.Typography.title2)
                 .fontWeight(.bold)
+                .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
 
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
                 if let current = Double(currentWeight) {
                     Text("Current Weight: \(Int(current)) lbs")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .font(DesignSystem.Typography.subheadline)
+                        .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text("Goal Weight (lbs)")
-                        .font(.headline)
+                        .font(DesignSystem.Typography.bodyBold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
                     TextField("175", text: $goalWeight)
                         .keyboardType(.decimalPad)
                         .textFieldStyle(.roundedBorder)
@@ -495,20 +503,22 @@ struct GoalWeightPage: View {
                 if !goalWeight.isEmpty {
                     HStack {
                         Text("Goal Type:")
-                            .font(.headline)
+                            .font(DesignSystem.Typography.bodyBold)
+                            .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
                         Spacer()
                         Text(goalType)
-                            .font(.headline)
+                            .font(DesignSystem.Typography.bodyBold)
                             .foregroundColor(goalTypeColor)
                     }
-                    .padding()
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(8)
+                    .padding(DesignSystem.Spacing.md)
+                    .background(DesignSystem.Colors.card(for: colorScheme))
+                    .cornerRadius(DesignSystem.CornerRadius.sm)
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text("How quickly do you want to reach your goal?")
-                        .font(.headline)
+                        .font(DesignSystem.Typography.bodyBold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
 
                     Picker("Rate", selection: $weightChangeRate) {
                         ForEach(WeightChangeRate.allCases, id: \.self) { rate in
@@ -518,21 +528,21 @@ struct GoalWeightPage: View {
                     .pickerStyle(.segmented)
 
                     Text("We'll calculate safe calorie targets based on your selection")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(DesignSystem.Typography.caption1)
+                        .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
                 }
             }
-            .padding()
+            .padding(DesignSystem.Spacing.lg)
 
             Spacer()
         }
-        .padding()
+        .padding(DesignSystem.Spacing.lg)
     }
 
     private var goalTypeColor: Color {
         guard let current = Double(currentWeight),
               let goal = Double(goalWeight) else {
-            return .blue
+            return DesignSystem.Colors.primary
         }
 
         if goal < current {
@@ -540,7 +550,7 @@ struct GoalWeightPage: View {
         } else if goal > current {
             return .green
         } else {
-            return .blue
+            return DesignSystem.Colors.primary
         }
     }
 }
@@ -548,17 +558,20 @@ struct GoalWeightPage: View {
 struct ActivityPage: View {
     @Binding var activityLevel: ActivityLevel
     @Binding var weeklyWorkouts: String
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: DesignSystem.Spacing.xl) {
             Text("Activity Level")
-                .font(.title2)
+                .font(DesignSystem.Typography.title2)
                 .fontWeight(.bold)
+                .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
 
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text("How active are you?")
-                        .font(.headline)
+                        .font(DesignSystem.Typography.bodyBold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
 
                     Picker("Activity Level", selection: $activityLevel) {
                         ForEach(ActivityLevel.allCases, id: \.self) { level in
@@ -569,22 +582,23 @@ struct ActivityPage: View {
                     .frame(height: 200)
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text("Weekly Workout Goal")
-                        .font(.headline)
+                        .font(DesignSystem.Typography.bodyBold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
                     TextField("4", text: $weeklyWorkouts)
                         .keyboardType(.numberPad)
                         .textFieldStyle(.roundedBorder)
                     Text("How many times per week do you want to workout?")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(DesignSystem.Typography.caption1)
+                        .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
                 }
             }
-            .padding()
+            .padding(DesignSystem.Spacing.lg)
 
             Spacer()
         }
-        .padding()
+        .padding(DesignSystem.Spacing.lg)
     }
 }
 
@@ -597,6 +611,7 @@ struct NutritionGoalsPage: View {
     let gender: Gender
     let age: String
     @Binding var proteinGoal: String
+    @Environment(\.colorScheme) var colorScheme
 
     var calculatedCalories: Int {
         guard let current = Double(currentWeight),
@@ -618,15 +633,20 @@ struct NutritionGoalsPage: View {
 
         let tdee = bmr * activityLevel.multiplier
         let isDeficit = goal < current
+        let isMaintaining = abs(goal - current) < 1.0 // Within 1 lb is maintenance
 
         let calorieAdjustment: Double
-        switch weightChangeRate {
-        case .slow:
-            calorieAdjustment = isDeficit ? -250 : 200
-        case .moderate:
-            calorieAdjustment = isDeficit ? -500 : 300
-        case .fast:
-            calorieAdjustment = isDeficit ? -750 : 400
+        if isMaintaining {
+            calorieAdjustment = 0  // No adjustment for maintenance
+        } else {
+            switch weightChangeRate {
+            case .slow:
+                calorieAdjustment = isDeficit ? -250 : 200
+            case .moderate:
+                calorieAdjustment = isDeficit ? -500 : 300
+            case .fast:
+                calorieAdjustment = isDeficit ? -750 : 400
+            }
         }
 
         let targetCalories = tdee + calorieAdjustment
@@ -643,67 +663,58 @@ struct NutritionGoalsPage: View {
     }
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: DesignSystem.Spacing.xl) {
             Text("Nutrition Goals")
-                .font(.title2)
+                .font(DesignSystem.Typography.title2)
                 .fontWeight(.bold)
+                .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
 
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text("Daily Calorie Target")
-                        .font(.headline)
+                        .font(DesignSystem.Typography.bodyBold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
 
                     HStack {
                         Text("\(calculatedCalories)")
                             .font(.system(size: 48, weight: .bold))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [.cyan, Color(red: 0.3, green: 0.5, blue: 1.0)]),
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
+                            .foregroundColor(DesignSystem.Colors.primary)
                         Text("cal/day")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
+                            .font(DesignSystem.Typography.bodyBold)
+                            .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
                     }
 
                     Text("Based on your stats and goals, we recommend this daily calorie intake")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(DesignSystem.Typography.caption1)
+                        .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
                 }
-                .padding()
-                .background(
-                    LinearGradient(
-                        gradient: Gradient(colors: [Color.cyan.opacity(0.1), Color(red: 0.3, green: 0.5, blue: 1.0).opacity(0.1)]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .cornerRadius(12)
+                .padding(DesignSystem.Spacing.md)
+                .background(DesignSystem.Colors.card(for: colorScheme))
+                .cornerRadius(DesignSystem.CornerRadius.md)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.cyan.opacity(0.2), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                        .stroke(DesignSystem.Colors.primary.opacity(0.2), lineWidth: 1)
                 )
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text("Daily Protein Goal (g)")
-                        .font(.headline)
+                        .font(DesignSystem.Typography.bodyBold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
 
                     TextField("\(recommendedProtein)", text: $proteinGoal)
                         .keyboardType(.numberPad)
                         .textFieldStyle(.roundedBorder)
 
                     Text("Recommended: \(recommendedProtein)g (0.9g per lb bodyweight)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(DesignSystem.Typography.caption1)
+                        .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
                 }
             }
-            .padding()
+            .padding(DesignSystem.Spacing.lg)
 
             Spacer()
         }
-        .padding()
+        .padding(DesignSystem.Spacing.lg)
         .onAppear {
             if proteinGoal.isEmpty {
                 proteinGoal = String(recommendedProtein)
@@ -713,21 +724,15 @@ struct NutritionGoalsPage: View {
 }
 
 struct RatingAndContactPage: View {
-    @EnvironmentObject var themeManager: ThemeManager
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 32) {
-                // Star icon with gradient
+            VStack(spacing: DesignSystem.Spacing.xxxl) {
+                // Star icon
                 ZStack {
                     Circle()
-                        .fill(
-                            LinearGradient(
-                                gradient: Gradient(colors: [Color.yellow.opacity(0.3), Color.orange.opacity(0.2)]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .fill(Color.yellow.opacity(0.2))
                         .frame(width: 150, height: 150)
                         .blur(radius: 30)
 
@@ -736,63 +741,57 @@ struct RatingAndContactPage: View {
                         .foregroundColor(.yellow)
                         .shadow(color: .yellow.opacity(0.5), radius: 10)
                 }
-                .padding(.top, 20)
+                .padding(.top, DesignSystem.Spacing.lg)
 
                 // Title
                 Text("Like the App?")
-                    .font(.title)
+                    .font(DesignSystem.Typography.largeTitle)
                     .fontWeight(.bold)
-                    .foregroundColor(themeManager.primaryTextColor)
+                    .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
                     .multilineTextAlignment(.center)
 
                 // Rating section
-                VStack(spacing: 16) {
+                VStack(spacing: DesignSystem.Spacing.md) {
                     Text("We'd love your feedback!")
-                        .font(.title3)
-                        .foregroundColor(themeManager.primaryTextColor)
+                        .font(DesignSystem.Typography.title3)
+                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
                         .multilineTextAlignment(.center)
 
                     Text("Please rate us 5 stars on the App Store")
-                        .font(.body)
+                        .font(DesignSystem.Typography.body)
                         .multilineTextAlignment(.center)
-                        .foregroundColor(themeManager.secondaryTextColor)
+                        .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
 
                     // Star rating visual
-                    HStack(spacing: 8) {
+                    HStack(spacing: DesignSystem.Spacing.xs) {
                         ForEach(0..<5) { _ in
                             Image(systemName: "star.fill")
-                                .font(.title2)
+                                .font(DesignSystem.Typography.title2)
                                 .foregroundColor(.yellow)
                                 .shadow(color: .yellow.opacity(0.3), radius: 4)
                         }
                     }
-                    .padding(.top, 8)
+                    .padding(.top, DesignSystem.Spacing.xs)
                 }
-                .padding()
-                .background(
-                    LinearGradient(
-                        gradient: Gradient(colors: [Color.yellow.opacity(0.1), Color.orange.opacity(0.05)]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .cornerRadius(16)
+                .padding(DesignSystem.Spacing.md)
+                .background(DesignSystem.Colors.card(for: colorScheme))
+                .cornerRadius(DesignSystem.CornerRadius.lg)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
                         .stroke(Color.yellow.opacity(0.3), lineWidth: 1)
                 )
-                .padding(.horizontal)
+                .padding(.horizontal, DesignSystem.Spacing.lg)
 
                 // Contact section
-                VStack(spacing: 12) {
+                VStack(spacing: DesignSystem.Spacing.sm) {
                     Text("Questions or Suggestions?")
-                        .font(.headline)
-                        .foregroundColor(themeManager.primaryTextColor)
+                        .font(DesignSystem.Typography.bodyBold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
 
-                    VStack(spacing: 8) {
+                    VStack(spacing: DesignSystem.Spacing.xs) {
                         Text("Message us at:")
-                            .font(.subheadline)
-                            .foregroundColor(themeManager.secondaryTextColor)
+                            .font(DesignSystem.Typography.subheadline)
+                            .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
 
                         Button(action: {
                             if let url = URL(string: "mailto:TheWorkInApp@gmail.com") {
@@ -804,34 +803,22 @@ struct RatingAndContactPage: View {
                                 Text("TheWorkInApp@gmail.com")
                                     .fontWeight(.semibold)
                             }
-                            .foregroundStyle(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [.cyan, Color(red: 0.3, green: 0.5, blue: 1.0)]),
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
+                            .foregroundColor(DesignSystem.Colors.primary)
                         }
                     }
                 }
-                .padding()
-                .background(
-                    LinearGradient(
-                        gradient: Gradient(colors: [Color.cyan.opacity(0.1), Color(red: 0.3, green: 0.5, blue: 1.0).opacity(0.1)]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .cornerRadius(16)
+                .padding(DesignSystem.Spacing.md)
+                .background(DesignSystem.Colors.card(for: colorScheme))
+                .cornerRadius(DesignSystem.CornerRadius.lg)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.cyan.opacity(0.2), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
+                        .stroke(DesignSystem.Colors.primary.opacity(0.2), lineWidth: 1)
                 )
-                .padding(.horizontal)
+                .padding(.horizontal, DesignSystem.Spacing.lg)
 
-                Spacer(minLength: 40)
+                Spacer(minLength: DesignSystem.Spacing.xxl)
             }
-            .padding()
+            .padding(DesignSystem.Spacing.lg)
         }
     }
 }

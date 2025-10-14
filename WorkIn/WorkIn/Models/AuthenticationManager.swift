@@ -103,9 +103,9 @@ class ThemeManager: ObservableObject {
         isDarkMode.toggle()
     }
 
-    // MARK: - Custom Colors for Better Dark Mode
+    // MARK: - Design System Colors
     var backgroundColor: Color {
-        isDarkMode ? Color(red: 0.12, green: 0.12, blue: 0.12) : Color(UIColor.systemBackground)
+        DesignSystem.Colors.background(for: colorScheme ?? .light)
     }
 
     var secondaryBackgroundColor: Color {
@@ -113,18 +113,18 @@ class ThemeManager: ObservableObject {
     }
 
     var cardBackgroundColor: Color {
-        isDarkMode ? Color(red: 0.2, green: 0.2, blue: 0.2) : Color.white
+        DesignSystem.Colors.card(for: colorScheme ?? .light)
     }
 
     var primaryTextColor: Color {
-        isDarkMode ? Color.white : Color.primary
+        DesignSystem.Colors.textPrimary(for: colorScheme ?? .light)
     }
 
     var secondaryTextColor: Color {
-        isDarkMode ? Color.gray : Color.secondary
+        DesignSystem.Colors.textSecondary(for: colorScheme ?? .light)
     }
 
     var accentColor: Color {
-        isDarkMode ? Color.cyan : Color(red: 0.3, green: 0.5, blue: 1.0)
+        DesignSystem.Colors.primary
     }
 }

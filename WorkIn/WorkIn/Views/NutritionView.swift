@@ -5,6 +5,7 @@ struct NutritionView: View {
     @EnvironmentObject var templateStore: TemplateStore
     @EnvironmentObject var profileStore: UserProfileStore
     @EnvironmentObject var themeManager: ThemeManager
+    @Environment(\.colorScheme) var colorScheme
     @State private var showingAddFood = false
     @State private var showingBarcodeScanner = false
     @State private var showingScannedFood = false
@@ -16,34 +17,73 @@ struct NutritionView: View {
 
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    DailyNutritionSummaryView(nutritionStore: nutritionStore)
+            VStack(spacing: 0) {
+                // Custom header bar
+                HStack {
+                    Text("Nutrition")
+                        .font(DesignSystem.Typography.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
 
-                    MealSectionsView(nutritionStore: nutritionStore)
-                }
-                .padding()
-            }
-            .background(themeManager.backgroundColor)
-            .navigationTitle("Nutrition")
-            .toolbar {
-                ToolbarItemGroup(placement: .navigationBarLeading) {
+                    Spacer()
+
                     Button(action: { showingAIMealGenerator = true }) {
                         Image(systemName: "sparkles")
                             .foregroundColor(.purple)
+                            .font(.system(size: 16))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(themeManager.secondaryBackgroundColor)
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.purple.opacity(0.4), lineWidth: 2)
+                            )
                     }
 
                     Button(action: { showingBarcodeScanner = true }) {
                         Image(systemName: "barcode.viewfinder")
+                            .foregroundColor(DesignSystem.Colors.primary)
+                            .font(.system(size: 16))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(themeManager.secondaryBackgroundColor)
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(DesignSystem.Colors.primary.opacity(0.4), lineWidth: 2)
+                            )
+                    }
+
+                    Button(action: { showingAddFood = true }) {
+                        Text("Log Food")
+                            .foregroundColor(DesignSystem.Colors.primary)
+                            .font(.system(size: 16))
+                            .fontWeight(.semibold)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(themeManager.secondaryBackgroundColor)
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(DesignSystem.Colors.primary.opacity(0.4), lineWidth: 2)
+                            )
                     }
                 }
+                .padding(.horizontal, DesignSystem.Spacing.lg)
+                .padding(.vertical, DesignSystem.Spacing.sm)
 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingAddFood = true }) {
-                        Image(systemName: "plus")
+                ScrollView {
+                    VStack(spacing: DesignSystem.Spacing.lg) {
+                        DailyNutritionSummaryView(nutritionStore: nutritionStore)
+
+                        MealSectionsView(nutritionStore: nutritionStore)
                     }
+                    .padding(DesignSystem.Spacing.lg)
                 }
             }
+            .background(DesignSystem.Colors.background(for: colorScheme))
+            .navigationBarHidden(true)
             .sheet(isPresented: $showingAddFood) {
                 FoodSelectionView { foodEntry in
                     nutritionStore.addFoodEntry(foodEntry)
@@ -79,7 +119,7 @@ struct NutritionView: View {
                             .ignoresSafeArea()
 
                         VStack(spacing: 16) {
-                            ProgressView()
+                            SwiftUI.ProgressView()
                                 .scaleEffect(1.5)
 
                             Text("Looking up product...")
@@ -130,17 +170,20 @@ struct NutritionView: View {
 
 struct DailyNutritionSummaryView: View {
     @ObservedObject var nutritionStore: NutritionStore
+    @EnvironmentObject var themeManager: ThemeManager
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         let totals = nutritionStore.todaysTotals()
         let goals = nutritionStore.nutritionGoals
 
-        VStack(spacing: 16) {
+        VStack(spacing: DesignSystem.Spacing.md) {
             Text("Today's Nutrition")
-                .font(.title2)
+                .font(DesignSystem.Typography.title2)
                 .fontWeight(.bold)
+                .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
 
-            HStack(spacing: 20) {
+            HStack(spacing: DesignSystem.Spacing.lg) {
                 NutritionCircleView(
                     title: "Calories",
                     current: totals.calories,
@@ -173,9 +216,19 @@ struct DailyNutritionSummaryView: View {
                 )
             }
         }
-        .padding()
-        .background(Color.gray.opacity(0.1))
-        .cornerRadius(12)
+        .padding(DesignSystem.Spacing.md)
+        .background(
+            ZStack {
+                DesignSystem.Colors.card(for: colorScheme)
+                Color.orange.opacity(0.03)
+            }
+        )
+        .cornerRadius(DesignSystem.CornerRadius.lg)
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
+                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+        )
+        .shadow(color: Color.orange.opacity(0.1), radius: 8, x: 0, y: 4)
     }
 }
 
@@ -255,6 +308,8 @@ struct MealSectionView: View {
     let mealType: MealType
     let entries: [FoodEntry]
     let nutritionStore: NutritionStore
+    @EnvironmentObject var themeManager: ThemeManager
+    @Environment(\.colorScheme) var colorScheme
 
     @State private var editingEntry: FoodEntry?
     @State private var showingEditSheet = false
@@ -263,22 +318,40 @@ struct MealSectionView: View {
         entries.reduce(0) { $0 + $1.calories }
     }
 
+    var mealColor: Color {
+        switch mealType {
+        case .breakfast: return .orange
+        case .lunch: return .green
+        case .dinner: return .purple
+        case .snack: return DesignSystem.Colors.primary
+        }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
             HStack {
-                Text(mealType.rawValue)
-                    .font(.headline)
+                HStack(spacing: DesignSystem.Spacing.xs) {
+                    Circle()
+                        .fill(mealColor)
+                        .frame(width: 8, height: 8)
+                        .shadow(color: mealColor.opacity(0.5), radius: 4)
+
+                    Text(mealType.rawValue)
+                        .font(DesignSystem.Typography.bodyBold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
+                }
                 Spacer()
                 Text("\(Int(totalCalories)) cal")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .font(DesignSystem.Typography.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(mealColor)
             }
 
             if entries.isEmpty {
                 Text("No foods logged")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.vertical, 8)
+                    .font(DesignSystem.Typography.caption1)
+                    .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                    .padding(.vertical, DesignSystem.Spacing.xs)
             } else {
                 ForEach(entries) { entry in
                     FoodEntryRowView(entry: entry)
@@ -299,9 +372,18 @@ struct MealSectionView: View {
                 }
             }
         }
-        .padding()
-        .background(Color.gray.opacity(0.05))
-        .cornerRadius(8)
+        .padding(DesignSystem.Spacing.md)
+        .background(
+            ZStack {
+                DesignSystem.Colors.card(for: colorScheme)
+                mealColor.opacity(0.03)
+            }
+        )
+        .cornerRadius(DesignSystem.CornerRadius.md)
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                .stroke(mealColor.opacity(0.2), lineWidth: 1)
+        )
         .sheet(isPresented: $showingEditSheet) {
             if let entry = editingEntry {
                 EditFoodEntryView(
@@ -318,21 +400,29 @@ struct MealSectionView: View {
 
 struct FoodEntryRowView: View {
     let entry: FoodEntry
+    @EnvironmentObject var themeManager: ThemeManager
 
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.name)
                     .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(themeManager.primaryTextColor)
                 Text("\(Int(entry.protein))p | \(Int(entry.carbs))c | \(Int(entry.fat))f")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
             Spacer()
-            Text("\(Int(entry.calories)) cal")
-                .font(.caption)
-                .fontWeight(.medium)
+            Text("\(Int(entry.calories))")
+                .font(.subheadline)
+                .fontWeight(.bold)
+                .foregroundColor(.orange)
+            + Text(" cal")
+                .font(.caption2)
+                .foregroundColor(themeManager.secondaryTextColor)
         }
+        .padding(.vertical, 4)
     }
 }
 
