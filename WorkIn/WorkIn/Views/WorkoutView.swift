@@ -363,44 +363,46 @@ struct FullPageWorkoutCard: View {
                             Text("\(formatDuration(workout.duration))")
                                 .font(DesignSystem.Typography.title1)
                                 .fontWeight(.bold)
-                                .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
+                                .foregroundColor(.white)
                             Text("Duration")
                                 .font(DesignSystem.Typography.caption1)
-                                .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                                .foregroundColor(.white.opacity(0.9))
                         }
 
                         Divider()
                             .frame(height: 40)
+                            .background(.white.opacity(0.5))
 
                         VStack(spacing: DesignSystem.Spacing.xxs) {
                             Text("\(workout.exercises.count)")
                                 .font(DesignSystem.Typography.title1)
                                 .fontWeight(.bold)
-                                .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
+                                .foregroundColor(.white)
                             Text("Exercises")
                                 .font(DesignSystem.Typography.caption1)
-                                .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                                .foregroundColor(.white.opacity(0.9))
                         }
 
                         Divider()
                             .frame(height: 40)
+                            .background(.white.opacity(0.5))
 
                         VStack(spacing: DesignSystem.Spacing.xxs) {
                             let totalSets = workout.exercises.reduce(0) { $0 + $1.sets.count }
                             Text("\(totalSets)")
                                 .font(DesignSystem.Typography.title1)
                                 .fontWeight(.bold)
-                                .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
+                                .foregroundColor(.white)
                             Text("Sets")
                                 .font(DesignSystem.Typography.caption1)
-                                .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                                .foregroundColor(.white.opacity(0.9))
                         }
                     }
                     .padding(DesignSystem.Spacing.lg)
                     .background(
                         RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
-                            .fill(DesignSystem.Colors.card(for: colorScheme))
-                            .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
+                            .fill(DesignSystem.Colors.primary)
+                            .shadow(color: DesignSystem.Colors.primary.opacity(0.3), radius: 10, x: 0, y: 5)
                     )
 
                     // Tap to view details hint
@@ -694,11 +696,11 @@ struct ActiveWorkoutView: View {
             Text(workout.name)
                 .font(DesignSystem.Typography.largeTitle)
                 .fontWeight(.bold)
-                .foregroundColor(DesignSystem.Colors.primary)
+                .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
 
             Text("Duration: \(formatDuration(elapsedTime))")
                 .font(DesignSystem.Typography.title3)
-                .foregroundColor(DesignSystem.Colors.primary)
+                .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
                 .fontWeight(.medium)
 
             Text("\(workout.exercises.count) exercises")
@@ -706,16 +708,11 @@ struct ActiveWorkoutView: View {
                 .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
         }
         .padding(DesignSystem.Spacing.md)
-        .background(
-            ZStack {
-                DesignSystem.Colors.card(for: colorScheme)
-                DesignSystem.Colors.primary.opacity(0.05)
-            }
-        )
+        .background(DesignSystem.Colors.card(for: colorScheme))
         .cornerRadius(DesignSystem.CornerRadius.md)
         .overlay(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                .stroke(DesignSystem.Colors.primary.opacity(0.3), lineWidth: 1)
+                .stroke(DesignSystem.Colors.primary.opacity(0.4), lineWidth: 2)
         )
     }
 

@@ -124,6 +124,21 @@ class NutritionStore: ObservableObject {
         setupFirestoreListeners()
     }
 
+    // Call this when user signs in
+    func initializeForUser() {
+        print("🔥 NutritionStore: Initializing for signed-in user...")
+        setupFirestoreListeners()
+    }
+
+    // Call this when user signs out
+    func clearDataAndListeners() {
+        print("🔥 NutritionStore: Clearing data and removing listeners...")
+        dailyNutrition.removeAll()
+        errorMessage = nil
+        nutritionGoals = NutritionGoals() // Reset to defaults
+        firestoreManager.removeAllListeners()
+    }
+
     private func setupFirestoreListeners() {
         print("🔥 NutritionStore: Setting up Firestore listeners...")
         firestoreManager.listenToNutrition { [weak self] (nutrition: [DailyNutrition]) in

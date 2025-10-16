@@ -483,6 +483,8 @@ class UserProfileStore: ObservableObject {
         }
     }
 
+    @Published var isLoadingProfile: Bool = false
+
     private let firestoreManager = FirestoreManager()
     private var isSaving = false
     private var shouldSave = false
@@ -505,6 +507,7 @@ class UserProfileStore: ObservableObject {
     func resetProfile() {
         shouldSave = false
         hasCompletedOnboarding = false
+        isLoadingProfile = false
         profile = UserProfile(
             currentWeight: 0,
             goalWeight: 0,
@@ -517,6 +520,10 @@ class UserProfileStore: ObservableObject {
 
     // Load profile from Firestore when user signs in
     func loadProfile() async {
+        await MainActor.run {
+            isLoadingProfile = true
+        }
+
         shouldSave = false // Disable saving during load
         do {
             let result = try await firestoreManager.fetchUserProfile()
@@ -531,6 +538,7 @@ class UserProfileStore: ObservableObject {
                     print("ℹ️ No profile found in Firestore - showing onboarding")
                 }
                 shouldSave = true // Enable saving after load completes
+                isLoadingProfile = false
             }
         } catch {
             print("❌ Error loading profile: \(error.localizedDescription)")
@@ -538,6 +546,7 @@ class UserProfileStore: ObservableObject {
             await MainActor.run {
                 self.hasCompletedOnboarding = false
                 shouldSave = true
+                isLoadingProfile = false
             }
         }
     }

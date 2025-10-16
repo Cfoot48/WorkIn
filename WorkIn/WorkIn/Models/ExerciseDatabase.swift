@@ -137,6 +137,8 @@ struct ExerciseDatabase {
         ExerciseTemplate(name: "Donkey Calf Raise", muscleGroups: ["Calves"], category: .legs, equipment: .machine),
         ExerciseTemplate(name: "Single Leg Calf Raise", muscleGroups: ["Calves"], category: .legs, equipment: .bodyweight),
         ExerciseTemplate(name: "Smith Machine Calf Raise", muscleGroups: ["Calves"], category: .legs, equipment: .machine),
+        ExerciseTemplate(name: "Tibialis Raises", muscleGroups: ["Tibialis Anterior"], category: .legs, equipment: .bodyweight),
+        ExerciseTemplate(name: "Ankle Eversion", muscleGroups: ["Fibularis"], category: .legs, equipment: .bodyweight),
 
         // Additional Shoulder Exercises - Machines & Cables
         ExerciseTemplate(name: "Shoulder Press Machine", muscleGroups: ["Shoulders", "Triceps"], category: .push, equipment: .machine),

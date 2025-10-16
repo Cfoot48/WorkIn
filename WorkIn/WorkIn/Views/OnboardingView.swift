@@ -28,17 +28,19 @@ struct OnboardingView: View {
                 .ignoresSafeArea()
 
             VStack {
-                // Progress indicator
-                HStack(spacing: DesignSystem.Spacing.xs) {
-                    ForEach(0..<7) { index in
-                        Capsule()
-                            .fill(index <= currentPage ? DesignSystem.Colors.primary : Color.gray.opacity(0.3))
-                            .frame(height: 6)
-                            .shadow(color: index <= currentPage ? DesignSystem.Colors.primary.opacity(0.3) : .clear, radius: 4)
-                            .animation(DesignSystem.Animation.spring, value: currentPage)
+                // Progress indicator - hidden on first page
+                if currentPage > 0 {
+                    HStack(spacing: DesignSystem.Spacing.xs) {
+                        ForEach(0..<6) { index in
+                            Capsule()
+                                .fill(index < currentPage ? DesignSystem.Colors.primary : Color.gray.opacity(0.3))
+                                .frame(height: 6)
+                                .shadow(color: index < currentPage ? DesignSystem.Colors.primary.opacity(0.3) : .clear, radius: 4)
+                                .animation(DesignSystem.Animation.spring, value: currentPage)
+                        }
                     }
+                    .padding(DesignSystem.Spacing.md)
                 }
-                .padding(DesignSystem.Spacing.md)
 
             TabView(selection: $currentPage) {
                 WelcomePage()
@@ -107,8 +109,8 @@ struct OnboardingView: View {
                     }
 
                     DSButton(
-                        currentPage < 6 ? "Next" : "Complete",
-                        icon: currentPage < 6 ? "chevron.right" : "checkmark",
+                        currentPage == 0 ? "Start" : (currentPage < 6 ? "Next" : "Complete"),
+                        icon: currentPage == 0 ? "arrow.right" : (currentPage < 6 ? "chevron.right" : "checkmark"),
                         style: .primary,
                         size: .large
                     ) {
@@ -323,17 +325,16 @@ struct WelcomePage: View {
         VStack(spacing: DesignSystem.Spacing.xxxl) {
             Spacer()
 
-            ZStack {
-                Circle()
-                    .fill(DesignSystem.Colors.primary.opacity(0.15))
-                    .frame(width: 200, height: 200)
-                    .blur(radius: 30)
-
-                Image(systemName: "figure.strengthtraining.traditional")
-                    .font(.system(size: 100))
-                    .foregroundColor(DesignSystem.Colors.primary)
-                    .shadow(color: DesignSystem.Colors.primary.opacity(0.3), radius: 10)
-            }
+            // Lottie Animation - smaller size
+            #if canImport(Lottie)
+            LottieView(fileName: "WorkIn Final", loopMode: .loop, animationSpeed: 1.0)
+                .frame(width: 200, height: 200)
+                .scaleEffect(0.45)
+            #else
+            LottieView(fileName: "WorkIn Final")
+                .frame(width: 200, height: 200)
+                .scaleEffect(0.45)
+            #endif
 
             VStack(spacing: DesignSystem.Spacing.md) {
                 Text("Welcome to")

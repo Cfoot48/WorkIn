@@ -81,6 +81,12 @@ struct MuscleHighlightMask: View {
         else if normalizedGroup.contains("cal") || normalizedGroup.contains("calf") {
             return "calves-mask"
         }
+        else if normalizedGroup.contains("fibular") || normalizedGroup.contains("peroneal") {
+            return "fibularis-mask"
+        }
+        else if normalizedGroup.contains("tibialis") || normalizedGroup.contains("shin") {
+            return "tibialis-mask"
+        }
         else {
             return nil
         }

@@ -160,26 +160,43 @@ struct ProgressView: View {
                             .padding()
 
                         // Legend showing rank colors
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .center, spacing: 8) {
                             Text("Rank Legend:")
                                 .font(.caption)
                                 .fontWeight(.semibold)
                                 .foregroundColor(.secondary)
 
-                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                                ForEach(StrengthRank.allCases, id: \.self) { rank in
-                                    HStack(spacing: 6) {
-                                        Circle()
-                                            .fill(rank.glowColor)
-                                            .frame(width: 12, height: 12)
-                                        Text(rank.rawValue)
-                                            .font(.caption2)
-                                            .foregroundColor(.primary)
-                                        Spacer()
+                            HStack(alignment: .top, spacing: 32) {
+                                // Left column: Bronze, Silver, Gold, Platinum
+                                VStack(alignment: .leading, spacing: 8) {
+                                    ForEach([StrengthRank.bronze, .silver, .gold, .platinum], id: \.self) { rank in
+                                        HStack(spacing: 6) {
+                                            Circle()
+                                                .fill(rank.glowColor)
+                                                .frame(width: 12, height: 12)
+                                            Text(rank.rawValue)
+                                                .font(.caption2)
+                                                .foregroundColor(.primary)
+                                        }
+                                    }
+                                }
+
+                                // Right column: Diamond, Arnold, Hulk, Superman
+                                VStack(alignment: .leading, spacing: 8) {
+                                    ForEach([StrengthRank.diamond, .arnold, .hulk, .superman], id: \.self) { rank in
+                                        HStack(spacing: 6) {
+                                            Circle()
+                                                .fill(rank.glowColor)
+                                                .frame(width: 12, height: 12)
+                                            Text(rank.rawValue)
+                                                .font(.caption2)
+                                                .foregroundColor(.primary)
+                                        }
                                     }
                                 }
                             }
                         }
+                        .frame(maxWidth: .infinity)
                         .padding()
                     }
                     .background(themeManager.secondaryBackgroundColor)

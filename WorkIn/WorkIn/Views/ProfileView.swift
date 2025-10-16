@@ -11,7 +11,18 @@ struct ProfileView: View {
 
     var body: some View {
         NavigationView {
-            if !profileStore.hasCompletedOnboarding {
+            if profileStore.isLoadingProfile {
+                // Show loading indicator while checking onboarding status
+                VStack(spacing: 20) {
+                    SwiftUI.ProgressView()
+                        .scaleEffect(1.5)
+                        .tint(DesignSystem.Colors.primary)
+                    Text("Loading profile...")
+                        .foregroundColor(themeManager.secondaryTextColor)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(themeManager.backgroundColor)
+            } else if !profileStore.hasCompletedOnboarding {
                 OnboardingView(
                     profileStore: profileStore,
                     isCompleted: $profileStore.hasCompletedOnboarding
@@ -260,39 +271,19 @@ struct ProfileMenuView: View {
             )
 
             ProfileMenuItem(
-                icon: "chart.bar.fill",
-                title: "Detailed Analytics",
-                action: { }
-            )
-
-            ProfileMenuItem(
-                icon: "heart.fill",
-                title: "Health Data",
-                action: { }
-            )
-
-            ProfileMenuItem(
                 icon: "gear",
                 title: "Settings",
                 action: { showingSettings = true }
             )
 
             ProfileMenuItem(
-                icon: "rectangle.portrait.and.arrow.right",
-                title: "Sign Out",
-                action: {
-                    do {
-                        try authManager.signOut()
-                    } catch {
-                        print("Error signing out: \(error)")
-                    }
-                }
-            )
-
-            ProfileMenuItem(
                 icon: "questionmark.circle",
                 title: "Help & Support",
-                action: { }
+                action: {
+                    if let url = URL(string: "mailto:theworkinapp@gmail.com") {
+                        UIApplication.shared.open(url)
+                    }
+                }
             )
 
             // DEBUG: Reset Onboarding
@@ -347,10 +338,179 @@ struct ProfileMenuItem: View {
     }
 }
 
+struct DeleteAccountButton: View {
+    @ObservedObject var authManager: AuthenticationManager
+    @State private var showingDeleteConfirmation = false
+    @State private var showingReauthentication = false
+    @State private var isDeleting = false
+    @State private var errorMessage = ""
+    @State private var showError = false
+    @State private var reauthPassword = ""
+    @EnvironmentObject var themeManager: ThemeManager
+
+    private var isGoogleUser: Bool {
+        authManager.getUserProviders().contains("google.com")
+    }
+
+    private var userEmail: String {
+        authManager.user?.email ?? ""
+    }
+
+    var body: some View {
+        Button(action: { showingDeleteConfirmation = true }) {
+            HStack {
+                Image(systemName: "trash.fill")
+                    .font(.title3)
+                    .foregroundColor(.red)
+                    .frame(width: 30)
+
+                Text("Delete Account")
+                    .font(.body)
+                    .foregroundColor(.red)
+
+                Spacer()
+
+                if isDeleting {
+                    SwiftUI.ProgressView()
+                        .tint(.red)
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.red.opacity(0.6))
+                }
+            }
+            .padding()
+            .background(themeManager.secondaryBackgroundColor)
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.red.opacity(0.4), lineWidth: 2)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(isDeleting)
+        .alert("Delete Account", isPresented: $showingDeleteConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                deleteAccount()
+            }
+        } message: {
+            Text("Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently deleted.")
+        }
+        .alert("Re-authenticate Required", isPresented: $showingReauthentication) {
+            if isGoogleUser {
+                Button("Cancel", role: .cancel) {
+                    isDeleting = false
+                }
+                Button("Sign in with Google") {
+                    reauthenticateWithGoogle()
+                }
+            } else {
+                SecureField("Password", text: $reauthPassword)
+                Button("Cancel", role: .cancel) {
+                    isDeleting = false
+                    reauthPassword = ""
+                }
+                Button("Confirm") {
+                    reauthenticateWithPassword()
+                }
+            }
+        } message: {
+            if isGoogleUser {
+                Text("For security, please sign in with Google again to confirm account deletion.")
+            } else {
+                Text("For security, please enter your password to confirm account deletion.")
+            }
+        }
+        .alert("Error", isPresented: $showError) {
+            Button("OK", role: .cancel) {
+                isDeleting = false
+            }
+        } message: {
+            Text(errorMessage)
+        }
+    }
+
+    private func deleteAccount() {
+        isDeleting = true
+        Task {
+            do {
+                try await authManager.deleteAccount()
+                print("✅ Account deleted successfully")
+            } catch let error as AccountDeletionError {
+                if case .requiresRecentLogin = error {
+                    await MainActor.run {
+                        showingReauthentication = true
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Failed to delete account: \(error.localizedDescription)"
+                    showError = true
+                    isDeleting = false
+                }
+            }
+        }
+    }
+
+    private func reauthenticateWithPassword() {
+        Task {
+            do {
+                try await authManager.reauthenticateForDeletion(email: userEmail, password: reauthPassword)
+                reauthPassword = ""
+                // Try deleting again after successful re-auth
+                try await authManager.deleteAccount()
+                print("✅ Account deleted successfully after re-authentication")
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Failed to delete account: \(error.localizedDescription)"
+                    showError = true
+                    isDeleting = false
+                    reauthPassword = ""
+                }
+            }
+        }
+    }
+
+    private func reauthenticateWithGoogle() {
+        Task {
+            do {
+                try await authManager.reauthenticateWithGoogleForDeletion()
+                // Try deleting again after successful re-auth
+                try await authManager.deleteAccount()
+                print("✅ Account deleted successfully after re-authentication")
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Failed to delete account: \(error.localizedDescription)"
+                    showError = true
+                    isDeleting = false
+                }
+            }
+        }
+    }
+}
+
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var authManager: AuthenticationManager
     @EnvironmentObject var themeManager: ThemeManager
     @State private var notificationsEnabled = true
+    @State private var showingSignOutConfirmation = false
+    @State private var showingDeleteConfirmation = false
+    @State private var showingReauthentication = false
+    @State private var isDeleting = false
+    @State private var errorMessage = ""
+    @State private var showError = false
+    @State private var reauthPassword = ""
+
+    private var isGoogleUser: Bool {
+        authManager.getUserProviders().contains("google.com")
+    }
+
+    private var userEmail: String {
+        authManager.user?.email ?? ""
+    }
 
     var body: some View {
         NavigationView {
@@ -383,8 +543,16 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Button("Sign Out") { }
-                        .foregroundColor(.red)
+                    Button("Sign Out") {
+                        showingSignOutConfirmation = true
+                    }
+                    .foregroundColor(.red)
+
+                    Button("Delete Account") {
+                        showingDeleteConfirmation = true
+                    }
+                    .foregroundColor(.red)
+                    .disabled(isDeleting)
                 }
             }
             .navigationTitle("Settings")
@@ -392,6 +560,115 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
+                }
+            }
+            .alert("Sign Out", isPresented: $showingSignOutConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Sign Out", role: .destructive) {
+                    do {
+                        try authManager.signOut()
+                        dismiss()
+                    } catch {
+                        print("Error signing out: \(error)")
+                    }
+                }
+            } message: {
+                Text("Are you sure you want to sign out?")
+            }
+            .alert("Delete Account", isPresented: $showingDeleteConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete", role: .destructive) {
+                    deleteAccount()
+                }
+            } message: {
+                Text("Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently deleted.")
+            }
+            .alert("Re-authenticate Required", isPresented: $showingReauthentication) {
+                if isGoogleUser {
+                    Button("Cancel", role: .cancel) {
+                        isDeleting = false
+                    }
+                    Button("Sign in with Google") {
+                        reauthenticateWithGoogle()
+                    }
+                } else {
+                    SecureField("Password", text: $reauthPassword)
+                    Button("Cancel", role: .cancel) {
+                        isDeleting = false
+                        reauthPassword = ""
+                    }
+                    Button("Confirm") {
+                        reauthenticateWithPassword()
+                    }
+                }
+            } message: {
+                if isGoogleUser {
+                    Text("For security, please sign in with Google again to confirm account deletion.")
+                } else {
+                    Text("For security, please enter your password to confirm account deletion.")
+                }
+            }
+            .alert("Error", isPresented: $showError) {
+                Button("OK", role: .cancel) {
+                    isDeleting = false
+                }
+            } message: {
+                Text(errorMessage)
+            }
+        }
+    }
+
+    private func deleteAccount() {
+        isDeleting = true
+        Task {
+            do {
+                try await authManager.deleteAccount()
+                print("✅ Account deleted successfully")
+            } catch let error as AccountDeletionError {
+                if case .requiresRecentLogin = error {
+                    await MainActor.run {
+                        showingReauthentication = true
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Failed to delete account: \(error.localizedDescription)"
+                    showError = true
+                    isDeleting = false
+                }
+            }
+        }
+    }
+
+    private func reauthenticateWithPassword() {
+        Task {
+            do {
+                try await authManager.reauthenticateForDeletion(email: userEmail, password: reauthPassword)
+                reauthPassword = ""
+                try await authManager.deleteAccount()
+                print("✅ Account deleted successfully after re-authentication")
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Failed to delete account: \(error.localizedDescription)"
+                    showError = true
+                    isDeleting = false
+                    reauthPassword = ""
+                }
+            }
+        }
+    }
+
+    private func reauthenticateWithGoogle() {
+        Task {
+            do {
+                try await authManager.reauthenticateWithGoogleForDeletion()
+                try await authManager.deleteAccount()
+                print("✅ Account deleted successfully after re-authentication")
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Failed to delete account: \(error.localizedDescription)"
+                    showError = true
+                    isDeleting = false
                 }
             }
         }

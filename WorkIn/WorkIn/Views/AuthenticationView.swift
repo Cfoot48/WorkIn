@@ -13,7 +13,17 @@ struct AuthenticationView: View {
     var body: some View {
         Group {
             if authManager.isAuthenticated {
-                if !profileStore.hasCompletedOnboarding {
+                if profileStore.isLoadingProfile {
+                    // Show loading indicator while checking onboarding status
+                    VStack(spacing: 20) {
+                        SwiftUI.ProgressView()
+                            .scaleEffect(1.5)
+                            .tint(DesignSystem.Colors.primary)
+                        Text("Loading profile...")
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if !profileStore.hasCompletedOnboarding {
                     OnboardingView(
                         profileStore: profileStore,
                         isCompleted: $profileStore.hasCompletedOnboarding
@@ -57,6 +67,23 @@ struct AuthenticationView: View {
                                 .font(.footnote)
                                 .foregroundColor(.blue)
                         }
+
+                        // Divider
+                        HStack {
+                            Rectangle()
+                                .frame(height: 1)
+                                .foregroundColor(.gray.opacity(0.3))
+                            Text("or")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Rectangle()
+                                .frame(height: 1)
+                                .foregroundColor(.gray.opacity(0.3))
+                        }
+                        .padding(.vertical, 8)
+
+                        // Social Sign In Buttons
+                        SocialSignInButtons(authManager: authManager)
 
                         Spacer()
                     }
@@ -221,6 +248,109 @@ struct SignUpView: View {
                         print("🔥 User Info: \(nsError.userInfo)")
                     }
                     errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+}
+
+struct SocialSignInButtons: View {
+    @ObservedObject var authManager: AuthenticationManager
+    @State private var isLoading = false
+    @State private var errorMessage = ""
+    @State private var showError = false
+
+    var body: some View {
+        VStack(spacing: 12) {
+            // Google Sign In Button
+            Button(action: signInWithGoogle) {
+                HStack {
+                    Image(systemName: "g.circle.fill")
+                        .font(.system(size: 20))
+                    Text("Continue with Google")
+                        .fontWeight(.semibold)
+                }
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.white)
+                .cornerRadius(10)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                )
+            }
+            .disabled(isLoading)
+
+            // Apple Sign In Button (commented out until Apple Developer account is configured)
+            /*
+            Button(action: signInWithApple) {
+                HStack {
+                    Image(systemName: "apple.logo")
+                        .font(.system(size: 20))
+                    Text("Continue with Apple")
+                        .fontWeight(.semibold)
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.black)
+                .cornerRadius(10)
+            }
+            .disabled(isLoading)
+            */
+
+            if !errorMessage.isEmpty {
+                Text(errorMessage)
+                    .foregroundColor(.red)
+                    .font(.caption)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .alert("Sign In Error", isPresented: $showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
+    }
+
+    private func signInWithApple() {
+        isLoading = true
+        errorMessage = ""
+
+        Task {
+            do {
+                try await authManager.signInWithApple()
+                await MainActor.run {
+                    isLoading = false
+                }
+            } catch {
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = error.localizedDescription
+                    showError = true
+                    print("🍎 Apple Sign In Error: \(error)")
+                }
+            }
+        }
+    }
+
+    private func signInWithGoogle() {
+        isLoading = true
+        errorMessage = ""
+
+        Task {
+            do {
+                try await authManager.signInWithGoogle()
+                await MainActor.run {
+                    isLoading = false
+                }
+            } catch {
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = error.localizedDescription
+                    showError = true
+                    print("🔴 Google Sign In Error: \(error)")
                 }
             }
         }

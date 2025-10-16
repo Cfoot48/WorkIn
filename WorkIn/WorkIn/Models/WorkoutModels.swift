@@ -60,10 +60,22 @@ class WorkoutStore: ObservableObject {
 
     init() {
         print("🔥 WorkoutStore: Initializing...")
-        // Delay Firebase setup to ensure user is authenticated
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            self.setupFirestoreListeners()
-        }
+        // Don't automatically set up listeners - wait for explicit initialization
+    }
+
+    // Call this when user signs in
+    func initializeForUser() {
+        print("🔥 WorkoutStore: Initializing for signed-in user...")
+        setupFirestoreListeners()
+    }
+
+    // Call this when user signs out
+    func clearDataAndListeners() {
+        print("🔥 WorkoutStore: Clearing data and removing listeners...")
+        workouts.removeAll()
+        currentWorkout = nil
+        errorMessage = nil
+        firestoreManager.removeAllListeners()
     }
 
     private func testRankingSystem() {
@@ -121,8 +133,7 @@ class WorkoutStore: ObservableObject {
             await MainActor.run {
                 self.errorMessage = error.localizedDescription
                 self.isLoading = false
-                // Fallback to sample data if user is offline or there's an error
-                self.loadSampleData()
+                // Don't load sample data - let users start fresh
             }
         }
     }

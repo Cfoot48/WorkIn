@@ -69,11 +69,18 @@ struct WorkInApp: App {
                 }
             }
             .task {
-                // Load everything while splash screen is showing
-                await workoutStore.loadWorkouts()
-                nutritionStore.startFirebaseListeners()
+                // Connect profileStore to authManager for synchronous loading state updates
+                authManager.profileStore = profileStore
 
+                // Set up auth state change callbacks
+                setupAuthCallbacks()
+
+                // Initialize data stores if user is already authenticated
                 if authManager.isAuthenticated {
+                    // Set loading state BEFORE any UI can render
+                    profileStore.isLoadingProfile = true
+                    workoutStore.initializeForUser()
+                    nutritionStore.initializeForUser()
                     await profileStore.loadProfile()
                 }
 
@@ -86,6 +93,30 @@ struct WorkInApp: App {
                     showSplash = false
                 }
             }
+        }
+    }
+
+    private func setupAuthCallbacks() {
+        // Handle user sign in
+        authManager.onUserSignedIn = { [weak workoutStore, weak nutritionStore, weak profileStore] in
+            print("🔄 App: User signed in, initializing data stores...")
+
+            // Loading state is already set in AuthenticationManager before this callback fires
+
+            workoutStore?.initializeForUser()
+            nutritionStore?.initializeForUser()
+
+            Task {
+                await profileStore?.loadProfile()
+            }
+        }
+
+        // Handle user sign out
+        authManager.onUserSignedOut = { [weak workoutStore, weak nutritionStore, weak profileStore] in
+            print("🔄 App: User signed out, clearing data stores...")
+            workoutStore?.clearDataAndListeners()
+            nutritionStore?.clearDataAndListeners()
+            profileStore?.resetProfile()
         }
     }
 }
@@ -101,17 +132,17 @@ struct SplashScreenView: View {
 
     var body: some View {
         ZStack {
-            // Deep black background
-            Color.black.ignoresSafeArea()
+            // White background
+            Color.white.ignoresSafeArea()
 
-            // Animated gradient background with coral to orange
+            // Animated gradient background with orange to white
             RadialGradient(
                 gradient: Gradient(colors: [
-                    Color(red: 1.0, green: 0.50, blue: 0.35).opacity(0.4), // Light coral
-                    Color(red: 1.0, green: 0.42, blue: 0.24).opacity(0.3), // Primary orange
-                    Color(red: 0.90, green: 0.35, blue: 0.15).opacity(0.2), // Dark orange
-                    Color.black,
-                    Color.black
+                    Color(red: 1.0, green: 0.50, blue: 0.35).opacity(0.6), // Light coral
+                    Color(red: 1.0, green: 0.42, blue: 0.24).opacity(0.5), // Primary orange
+                    Color(red: 0.90, green: 0.35, blue: 0.15).opacity(0.3), // Dark orange
+                    Color.white.opacity(0.8),
+                    Color.white
                 ]),
                 center: .center,
                 startRadius: 80,
@@ -127,9 +158,9 @@ struct SplashScreenView: View {
                     .fill(
                         RadialGradient(
                             gradient: Gradient(colors: [
-                                Color(red: 1.0, green: 0.50, blue: 0.35).opacity(0.2), // Light coral center
-                                Color(red: 1.0, green: 0.42, blue: 0.24).opacity(0.15), // Primary orange
-                                Color(red: 0.90, green: 0.35, blue: 0.15).opacity(0.08), // Dark orange
+                                Color(red: 1.0, green: 0.50, blue: 0.35).opacity(0.3), // Light coral center
+                                Color(red: 1.0, green: 0.42, blue: 0.24).opacity(0.25), // Primary orange
+                                Color(red: 0.90, green: 0.35, blue: 0.15).opacity(0.15), // Dark orange
                                 Color.clear
                             ]),
                             center: .center,
@@ -192,7 +223,16 @@ struct SplashScreenView: View {
                 Text("TRACK YOUR GAINS")
                     .font(.system(size: 14, weight: .bold, design: .rounded))
                     .tracking(3)
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundStyle(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color(red: 0.90, green: 0.35, blue: 0.15), // Dark orange
+                                Color(red: 1.0, green: 0.42, blue: 0.24)  // Primary orange
+                            ]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
                     .opacity(opacity)
             }
         }
