@@ -15,7 +15,6 @@ struct ActiveExerciseView: View {
     @State private var newDuration = "" // For time-based exercises
     @State private var restTime: Double = 60
     @State private var sets: [ExerciseSet]
-    @StateObject private var profileStore = UserProfileStore()
     @State private var showingDeleteConfirmation = false
     @State private var restTimerActive = false
     @State private var restTimeRemaining: Double = 0
@@ -278,7 +277,7 @@ struct ActiveExerciseView: View {
 
                         if isBodyweightExercise() {
                             Button {
-                                newWeight = String(Int(profileStore.profile.currentWeight))
+                                newWeight = String(Int(bodyWeight))
                             } label: {
                                 Text("BW")
                                     .font(.caption)

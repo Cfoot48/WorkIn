@@ -179,42 +179,22 @@ struct SplashScreenView: View {
             }
 
             VStack(spacing: 40) {
-                // Dumbbell icon with glow
+                // Dumbbell icon - matching dark color
                 Image(systemName: "dumbbell.fill")
                     .font(.system(size: 80, weight: .bold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color(red: 1.0, green: 0.42, blue: 0.24), // Primary orange
-                                Color(red: 1.0, green: 0.50, blue: 0.35)  // Light orange
-                            ]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .shadow(color: Color(red: 1.0, green: 0.42, blue: 0.24).opacity(0.8), radius: 20, x: 0, y: 0)
-                    .shadow(color: Color(red: 1.0, green: 0.50, blue: 0.35).opacity(0.6), radius: 40, x: 0, y: 0)
+                    .foregroundColor(Color(red: 0.65, green: 0.20, blue: 0.08)) // Same dark orange/brown as text
+                    .shadow(color: Color(red: 0.90, green: 0.35, blue: 0.15).opacity(0.4), radius: 8, x: 0, y: 2)
                     .blur(radius: blurRadius * 0.3)
                     .scaleEffect(iconScale)
                     .opacity(opacity)
 
-                // Main WORKIN text with gradient
+                // Main WORKIN text - dark and bold
                 Text("WORKIN")
                     .font(.system(size: 70, weight: .heavy, design: .default))
                     .kerning(letterSpacing)
-                    .foregroundStyle(
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color(red: 1.0, green: 0.42, blue: 0.24), // Primary orange
-                                Color(red: 1.0, green: 0.50, blue: 0.35), // Light orange
-                                Color(red: 1.0, green: 0.42, blue: 0.24)  // Primary orange
-                            ]),
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .shadow(color: Color(red: 1.0, green: 0.42, blue: 0.24).opacity(0.8), radius: 30, x: 0, y: 0)
-                    .shadow(color: Color(red: 1.0, green: 0.50, blue: 0.35).opacity(0.6), radius: 50, x: 0, y: 0)
+                    .foregroundColor(Color(red: 0.65, green: 0.20, blue: 0.08)) // Much darker orange/brown for visibility
+                    .shadow(color: DesignSystem.Colors.primary.opacity(0.5), radius: 20, x: 0, y: 0)
+                    .shadow(color: DesignSystem.Colors.primary.opacity(0.35), radius: 35, x: 0, y: 0)
                     .blur(radius: blurRadius)
                     .scaleEffect(scale)
                     .opacity(opacity)
@@ -223,16 +203,7 @@ struct SplashScreenView: View {
                 Text("TRACK YOUR GAINS")
                     .font(.system(size: 14, weight: .bold, design: .rounded))
                     .tracking(3)
-                    .foregroundStyle(
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color(red: 0.90, green: 0.35, blue: 0.15), // Dark orange
-                                Color(red: 1.0, green: 0.42, blue: 0.24)  // Primary orange
-                            ]),
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
+                    .foregroundColor(Color(red: 0.70, green: 0.25, blue: 0.10)) // Much darker orange/brown
                     .opacity(opacity)
             }
         }

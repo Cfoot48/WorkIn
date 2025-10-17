@@ -37,7 +37,7 @@ struct NutritionView: View {
                             .cornerRadius(8)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.purple.opacity(0.4), lineWidth: 2)
+                                    .stroke(Color.purple.opacity(0.8), lineWidth: 2)
                             )
                     }
 
@@ -51,7 +51,7 @@ struct NutritionView: View {
                             .cornerRadius(8)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .stroke(DesignSystem.Colors.primary.opacity(0.4), lineWidth: 2)
+                                    .stroke(DesignSystem.Colors.primary.opacity(0.8), lineWidth: 2)
                             )
                     }
 
@@ -66,7 +66,7 @@ struct NutritionView: View {
                             .cornerRadius(8)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .stroke(DesignSystem.Colors.primary.opacity(0.4), lineWidth: 2)
+                                    .stroke(DesignSystem.Colors.primary.opacity(0.8), lineWidth: 2)
                             )
                     }
                 }

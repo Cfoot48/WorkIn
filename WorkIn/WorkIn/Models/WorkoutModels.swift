@@ -598,12 +598,13 @@ struct PersonalRecord {
 
 extension Workout {
     func getHighestRank(bodyWeight: Double = 181) -> StrengthRank? {
-        // Use stored bodyweight from the workout if available
-        // If not stored, use a default of 181 lbs for old workouts (don't use current weight)
+        // ALWAYS use stored bodyweight from the workout if available
+        // If not stored, use a default of 181 lbs for old workouts (NEVER use current weight)
+        // The bodyWeight parameter is ignored - only used for backwards compatibility
         let effectiveBodyWeight = self.bodyWeight ?? 181.0
         var highestRank: StrengthRank?
 
-        print("🏋️ Calculating rank for workout '\(name)' with \(exercises.count) exercises (bodyweight: \(effectiveBodyWeight) lbs\(self.bodyWeight != nil ? " [stored]" : " [default]"))")
+        print("🏋️ Calculating rank for workout '\(name)' with \(exercises.count) exercises (bodyweight: \(effectiveBodyWeight) lbs\(self.bodyWeight != nil ? " [LOCKED/STORED]" : " [default]"))")
 
         for exercise in exercises {
             // Check if exercise has valid sets with weight and reps

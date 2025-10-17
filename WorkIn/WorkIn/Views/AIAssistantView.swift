@@ -251,7 +251,8 @@ struct MealTemplateRow: View {
     let template: MealTemplate
     @EnvironmentObject var nutritionStore: NutritionStore
     @EnvironmentObject var themeManager: ThemeManager
-    @State private var showingConfirmation = false
+    @State private var showingServingsPicker = false
+    @State private var selectedServings: Double = 1.0
 
     var totalCalories: Double {
         template.foods.reduce(0) { $0 + $1.calories }
@@ -276,12 +277,17 @@ struct MealTemplateRow: View {
                         Text("\(Int(totalProtein))g protein")
                             .font(.caption)
                             .foregroundColor(themeManager.secondaryTextColor)
+                        if let servings = template.servings, servings > 1 {
+                            Text("(\(servings) servings)")
+                                .font(.caption)
+                                .foregroundColor(themeManager.secondaryTextColor)
+                        }
                     }
                 }
 
                 Spacer()
 
-                Button(action: { showingConfirmation = true }) {
+                Button(action: { showingServingsPicker = true }) {
                     Label("Log Meal", systemImage: "plus.circle.fill")
                         .font(.caption)
                         .padding(.horizontal, 12)
@@ -309,19 +315,99 @@ struct MealTemplateRow: View {
             .padding(.top, 4)
         }
         .padding(.vertical, 8)
-        .alert("Log Meal", isPresented: $showingConfirmation) {
-            Button("Cancel", role: .cancel) { }
-            Button("Log") {
-                logMealFromTemplate()
-            }
-        } message: {
-            Text("Log all foods from '\(template.name)' to today's nutrition?")
+        .sheet(isPresented: $showingServingsPicker) {
+            ServingsPickerView(
+                mealName: template.name,
+                totalServings: template.servings ?? 1,
+                selectedServings: $selectedServings,
+                onConfirm: {
+                    logMealFromTemplate(servings: selectedServings)
+                    showingServingsPicker = false
+                }
+            )
+            .environmentObject(themeManager)
         }
     }
 
-    private func logMealFromTemplate() {
+    private func logMealFromTemplate(servings: Double) {
+        let totalServings = Double(template.servings ?? 1)
+        let multiplier = servings / totalServings
+
         for food in template.foods {
-            nutritionStore.addFoodEntry(food)
+            let adjustedFood = FoodEntry(
+                name: food.name,
+                calories: food.calories * multiplier,
+                protein: food.protein * multiplier,
+                carbs: food.carbs * multiplier,
+                fat: food.fat * multiplier,
+                mealType: food.mealType
+            )
+            nutritionStore.addFoodEntry(adjustedFood)
+        }
+    }
+}
+
+// MARK: - Servings Picker View
+struct ServingsPickerView: View {
+    let mealName: String
+    let totalServings: Int
+    @Binding var selectedServings: Double
+    let onConfirm: () -> Void
+    @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var themeManager: ThemeManager
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                Text("How many servings?")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .padding(.top)
+
+                Text(mealName)
+                    .font(.headline)
+                    .foregroundColor(themeManager.secondaryTextColor)
+
+                if totalServings > 1 {
+                    Text("This recipe makes \(totalServings) servings")
+                        .font(.subheadline)
+                        .foregroundColor(themeManager.secondaryTextColor)
+                }
+
+                // Servings picker
+                VStack(spacing: 16) {
+                    Text("\(selectedServings, specifier: "%.1f") serving\(selectedServings == 1.0 ? "" : "s")")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                        .foregroundColor(themeManager.accentColor)
+
+                    Slider(value: $selectedServings, in: 0.5...Double(max(totalServings, 4)), step: 0.5)
+                        .accentColor(themeManager.accentColor)
+                        .padding(.horizontal)
+                }
+                .padding()
+
+                Spacer()
+
+                Button(action: onConfirm) {
+                    Text("Log Meal")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(themeManager.accentColor)
+                        .cornerRadius(12)
+                }
+                .padding()
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
         }
     }
 }
@@ -554,7 +640,7 @@ struct WorkoutPlanResultView: View {
                                     if let muscles = exercise.muscleGroups, !muscles.isEmpty {
                                         Text(muscles.joined(separator: ", "))
                                             .font(.caption2)
-                                            .foregroundColor(.cyan)
+                                            .foregroundColor(DesignSystem.Colors.primary)
                                     }
                                 }
                                 .padding()
@@ -577,7 +663,7 @@ struct WorkoutPlanResultView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.cyan)
+                        .background(DesignSystem.Colors.primary)
                         .foregroundColor(.white)
                         .cornerRadius(12)
                     }
@@ -842,7 +928,7 @@ struct MealPlanResultView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(selectedMeals.isEmpty ? Color.gray : Color.cyan)
+                        .background(selectedMeals.isEmpty ? Color.gray : DesignSystem.Colors.primary)
                         .foregroundColor(.white)
                         .cornerRadius(12)
                     }
@@ -892,7 +978,7 @@ struct RecipeCard: View {
                 Button(action: onToggleSelection) {
                     Image(systemName: isSelected ? "checkmark.square.fill" : "square")
                         .font(.title2)
-                        .foregroundColor(isSelected ? .cyan : .gray)
+                        .foregroundColor(isSelected ? DesignSystem.Colors.primary : .gray)
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -912,7 +998,7 @@ struct RecipeCard: View {
                         Label("\(meal.servings) serving\(meal.servings > 1 ? "s" : "")", systemImage: "person.fill")
                     }
                     .font(.caption)
-                    .foregroundColor(.cyan)
+                    .foregroundColor(DesignSystem.Colors.primary)
                 }
 
                 Spacer()
@@ -1030,8 +1116,8 @@ struct LoadingView: View {
             LinearGradient(
                 gradient: Gradient(colors: [
                     Color.black,
-                    Color.cyan.opacity(0.3),
-                    Color(red: 0.3, green: 0.5, blue: 1.0).opacity(0.4),
+                    DesignSystem.Colors.primary.opacity(0.3),
+                    Color(red: 1.0, green: 0.5, blue: 0.2).opacity(0.4),
                     Color.black
                 ]),
                 startPoint: .topLeading,
@@ -1064,7 +1150,7 @@ struct LoadingView: View {
                     Image(systemName: "sparkles")
                         .font(.system(size: 70))
                         .foregroundColor(.white)
-                        .shadow(color: .cyan, radius: 20)
+                        .shadow(color: DesignSystem.Colors.primary, radius: 20)
                         .rotationEffect(.degrees(rotation))
                 }
 
@@ -1080,7 +1166,7 @@ struct LoadingView: View {
                     .fontWeight(.bold)
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
-                    .shadow(color: .cyan, radius: 10)
+                    .shadow(color: DesignSystem.Colors.primary, radius: 10)
                     .padding(.horizontal, 40)
             }
         }

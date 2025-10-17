@@ -32,7 +32,7 @@ struct WorkoutView: View {
                                 .cornerRadius(8)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.purple.opacity(0.4), lineWidth: 2)
+                                        .stroke(Color.purple.opacity(0.8), lineWidth: 2)
                                 )
                         }
 
@@ -47,7 +47,7 @@ struct WorkoutView: View {
                                 .cornerRadius(8)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 8)
-                                        .stroke(DesignSystem.Colors.primary.opacity(0.4), lineWidth: 2)
+                                        .stroke(DesignSystem.Colors.primary.opacity(0.8), lineWidth: 2)
                                 )
                         }
                     }
@@ -250,6 +250,9 @@ struct FullPageWorkoutCard: View {
     private var muscleGroupRanks: [String: StrengthRank] {
         var ranks: [String: StrengthRank] = [:]
 
+        // ALWAYS use stored bodyweight from the workout, not current bodyweight
+        let effectiveBodyWeight = workout.bodyWeight ?? 181.0
+
         // For each exercise, calculate its rank and assign to its muscle groups
         for exercise in workout.exercises {
             // Calculate the rank for this exercise
@@ -271,7 +274,7 @@ struct FullPageWorkoutCard: View {
             let exerciseRank = StrengthStandards.getRank(
                 exerciseName: exercise.name,
                 weight: maxOneRepMax,
-                bodyWeight: bodyWeight,
+                bodyWeight: effectiveBodyWeight,
                 equipment: exercise.equipment
             )
 
@@ -402,8 +405,10 @@ struct FullPageWorkoutCard: View {
                     .background(
                         RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
                             .fill(DesignSystem.Colors.primary)
-                            .shadow(color: DesignSystem.Colors.primary.opacity(0.3), radius: 10, x: 0, y: 5)
                     )
+                    .shadow(color: DesignSystem.Colors.primary.opacity(0.6), radius: 8, x: 0, y: 0)
+                    .shadow(color: DesignSystem.Colors.primary.opacity(0.4), radius: 15, x: 0, y: 0)
+                    .shadow(color: DesignSystem.Colors.primary.opacity(0.25), radius: 22, x: 0, y: 0)
 
                     // Tap to view details hint
                     Text("Tap to view details")
@@ -614,7 +619,7 @@ struct ActiveWorkoutView: View {
                     .cornerRadius(8)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(DesignSystem.Colors.primary.opacity(0.4), lineWidth: 2)
+                            .stroke(DesignSystem.Colors.primary.opacity(0.8), lineWidth: 2)
                     )
                 }
             }
@@ -712,7 +717,7 @@ struct ActiveWorkoutView: View {
         .cornerRadius(DesignSystem.CornerRadius.md)
         .overlay(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                .stroke(DesignSystem.Colors.primary.opacity(0.4), lineWidth: 2)
+                .stroke(DesignSystem.Colors.primary.opacity(0.8), lineWidth: 2)
         )
     }
 
@@ -767,7 +772,7 @@ struct ActiveWorkoutView: View {
                     .cornerRadius(10)
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.red.opacity(0.4), lineWidth: 2)
+                            .stroke(Color.red.opacity(0.8), lineWidth: 2)
                     )
                 }
 
@@ -784,7 +789,7 @@ struct ActiveWorkoutView: View {
                     .cornerRadius(10)
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.green.opacity(0.4), lineWidth: 2)
+                            .stroke(Color.green.opacity(0.8), lineWidth: 2)
                     )
                 }
             }

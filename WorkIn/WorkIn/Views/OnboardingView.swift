@@ -324,6 +324,8 @@ struct WelcomePage: View {
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.xxxl) {
             Spacer()
+            Spacer()
+            Spacer()
 
             // Lottie Animation - smaller size
             #if canImport(Lottie)
@@ -344,7 +346,8 @@ struct WelcomePage: View {
                 Text("WORKIN")
                     .font(.system(size: 48, weight: .heavy, design: .default))
                     .foregroundColor(DesignSystem.Colors.primary)
-                    .shadow(color: DesignSystem.Colors.primary.opacity(0.3), radius: 8)
+                    .shadow(color: DesignSystem.Colors.primary.opacity(0.5), radius: 20, x: 0, y: 0)
+                    .shadow(color: DesignSystem.Colors.primary.opacity(0.35), radius: 35, x: 0, y: 0)
 
                 Text("Let's personalize your fitness journey")
                     .font(DesignSystem.Typography.title3)
