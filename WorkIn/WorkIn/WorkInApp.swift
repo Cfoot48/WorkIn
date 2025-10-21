@@ -21,6 +21,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             print("🔥 Firebase: ERROR - Default app not configured!")
         }
 
+        // Configure RevenueCat and Superwall
+        NSLog("💰 Configuring RevenueCat and Superwall...")
+        SubscriptionManager.shared.configure()
+        NSLog("💰 RevenueCat and Superwall configured!")
+
         // Load saved workout templates
         WorkoutTemplateDatabase.loadTemplates()
         print("📋 Loaded \(WorkoutTemplateDatabase.templates.count) workout templates")

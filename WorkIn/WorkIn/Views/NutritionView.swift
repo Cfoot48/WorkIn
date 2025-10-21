@@ -29,45 +29,36 @@ struct NutritionView: View {
 
                     Button(action: { showingAIMealGenerator = true }) {
                         Image(systemName: "sparkles")
-                            .foregroundColor(.purple)
+                            .foregroundColor(.white)
                             .font(.system(size: 16))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(themeManager.secondaryBackgroundColor)
+                            .background(Color.purple)
                             .cornerRadius(8)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.purple.opacity(0.8), lineWidth: 2)
-                            )
+                            .shadow(color: Color.purple.opacity(0.4), radius: 6, x: 0, y: 3)
                     }
 
                     Button(action: { showingBarcodeScanner = true }) {
                         Image(systemName: "barcode.viewfinder")
-                            .foregroundColor(DesignSystem.Colors.primary)
+                            .foregroundColor(.white)
                             .font(.system(size: 16))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(themeManager.secondaryBackgroundColor)
+                            .background(DesignSystem.Colors.primary)
                             .cornerRadius(8)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(DesignSystem.Colors.primary.opacity(0.8), lineWidth: 2)
-                            )
+                            .shadow(color: DesignSystem.Colors.primary.opacity(0.4), radius: 6, x: 0, y: 3)
                     }
 
                     Button(action: { showingAddFood = true }) {
                         Text("Log Food")
-                            .foregroundColor(DesignSystem.Colors.primary)
+                            .foregroundColor(.white)
                             .font(.system(size: 16))
                             .fontWeight(.semibold)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(themeManager.secondaryBackgroundColor)
+                            .background(DesignSystem.Colors.primary)
                             .cornerRadius(8)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(DesignSystem.Colors.primary.opacity(0.8), lineWidth: 2)
-                            )
+                            .shadow(color: DesignSystem.Colors.primary.opacity(0.4), radius: 6, x: 0, y: 3)
                     }
                 }
                 .padding(.horizontal, DesignSystem.Spacing.lg)

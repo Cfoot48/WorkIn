@@ -51,6 +51,10 @@
 		F4011BDE2EA0830B00B1C94E /* WorkIn Final.lottie in Resources */ = {isa = PBXBuildFile; fileRef = F4011BDD2EA0830B00B1C94E /* WorkIn Final.lottie */; };
 		F4011BE02EA0833500B1C94E /* LottieView 2.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4011BDF2EA0833500B1C94E /* LottieView 2.swift */; };
 		F4011BE32EA0840000B1C94E /* WorkIn Final.json in Resources */ = {isa = PBXBuildFile; fileRef = F4011BE22EA0840000B1C94E /* WorkIn Final.json */; };
+		F402A68C2EA2014F00A2CBBE /* SuperwallKit in Frameworks */ = {isa = PBXBuildFile; productRef = F402A68B2EA2014F00A2CBBE /* SuperwallKit */; };
+		F402A68F2EA4410B00A2CBBE /* SubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F402A68E2EA4410A00A2CBBE /* SubscriptionManager.swift */; };
+		F402A6922EA5647F00A2CBBE /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = F402A6912EA5647F00A2CBBE /* RevenueCat */; };
+		F402A6942EA5648500A2CBBE /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = F402A6932EA5648500A2CBBE /* RevenueCatUI */; };
 		F4A93B5BA8488C7C4453B7C9 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4BA0F54FA2018BFFEAAEBD3 /* OnboardingView.swift */; };
 		FF66EE55DD44CC33BB22AA11 /* MuscleGroupDiagram.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF66 /* MuscleGroupDiagram.swift */; };
 /* End PBXBuildFile section */
@@ -93,8 +97,9 @@
 		F4011BD72E9EC59400B1C94E /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		F4011BD92E9ECA5C00B1C94E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F4011BDD2EA0830B00B1C94E /* WorkIn Final.lottie */ = {isa = PBXFileReference; lastKnownFileType = file; path = "WorkIn Final.lottie"; sourceTree = "<group>"; };
-		F4011BE22EA0840000B1C94E /* WorkIn Final.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "WorkIn Final.json"; sourceTree = "<group>"; };
 		F4011BDF2EA0833500B1C94E /* LottieView 2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LottieView 2.swift"; sourceTree = "<group>"; };
+		F4011BE22EA0840000B1C94E /* WorkIn Final.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "WorkIn Final.json"; sourceTree = "<group>"; };
+		F402A68E2EA4410A00A2CBBE /* SubscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionManager.swift; sourceTree = "<group>"; };
 		F4BA0F54FA2018BFFEAAEBD3 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		FB627283172195AFF2E5CD30 /* DSButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DSButton.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -107,11 +112,13 @@
 				F4011BD42E9EC34F00B1C94E /* GoogleSignIn in Frameworks */,
 				F4011BDC2EA082CA00B1C94E /* Lottie in Frameworks */,
 				F4011BBE2E8BAAA600B1C94E /* FirebaseAuth in Frameworks */,
+				F402A68C2EA2014F00A2CBBE /* SuperwallKit in Frameworks */,
 				F4011BC02E8BAAA600B1C94E /* FirebaseFirestore in Frameworks */,
+				F402A6922EA5647F00A2CBBE /* RevenueCat in Frameworks */,
 				F4011BD62E9EC34F00B1C94E /* GoogleSignInSwift in Frameworks */,
 				F4011BC22E8BAAA600B1C94E /* FirebaseStorage in Frameworks */,
+				F402A6942EA5648500A2CBBE /* RevenueCatUI in Frameworks */,
 				F4011BD02E94D4FA00B1C94E /* FirebaseFunctions in Frameworks */,
-			
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -147,6 +154,7 @@
 				F4011BE22EA0840000B1C94E /* WorkIn Final.json */,
 				F4011BD72E9EC59400B1C94E /* GoogleService-Info.plist */,
 				CE1F71AE2CAE00002900ABCD /* WorkIn */,
+				F402A6902EA5647F00A2CBBE /* Frameworks */,
 				CE1F71AD2CAE00002900ABCD /* Products */,
 			);
 			sourceTree = "<group>";
@@ -186,6 +194,7 @@
 		CE1F71D12CAE00002900ABCD /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				F402A68E2EA4410A00A2CBBE /* SubscriptionManager.swift */,
 				F4011BC92E8BB1D600B1C94E /* FirestoreManager.swift */,
 				F4011BC52E8BAE1000B1C94E /* AuthenticationManager.swift */,
 				CE1F71BD2CAE00002900ABCD /* WorkoutModels.swift */,
@@ -227,6 +236,13 @@
 				CE1F71E42CAE00002900ABCD /* VolumeChartView.swift */,
 			);
 			path = Components;
+			sourceTree = "<group>";
+		};
+		F402A6902EA5647F00A2CBBE /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -277,7 +293,8 @@
 				F4011BBC2E8BAAA600B1C94E /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				F4011BD22E9EC34F00B1C94E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				F4011BDA2EA082CA00B1C94E /* XCRemoteSwiftPackageReference "lottie-spm" */,
-			
+				F402A68A2EA2014F00A2CBBE /* XCRemoteSwiftPackageReference "Superwall-iOS" */,
+				F402A68D2EA2076400A2CBBE /* XCRemoteSwiftPackageReference "purchases-ios" */,
 			);
 			productRefGroup = CE1F71AD2CAE00002900ABCD /* Products */;
 			projectDirPath = "";
@@ -339,6 +356,7 @@
 				943391454050B8B2578D7B54 /* DSCard.swift in Sources */,
 				0FF8F48F83571ADE0B3B566A /* DSExerciseTimer.swift in Sources */,
 				3DEFC3793D9170DC46F659B8 /* DSGoalSelector.swift in Sources */,
+				F402A68F2EA4410B00A2CBBE /* SubscriptionManager.swift in Sources */,
 				4F625FB447FF99CA10FA2F78 /* DSProgressRing.swift in Sources */,
 				2BE7CC875AC095ACFCFA2AA3 /* DSWeightTracker.swift in Sources */,
 				FF66EE55DD44CC33BB22AA11 /* MuscleGroupDiagram.swift in Sources */,
@@ -468,10 +486,12 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"WorkIn/Preview Content\"";
-				DEVELOPMENT_TEAM = KG6VS5LC9A;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = KG6VS5LC9A;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = WorkIn/Info.plist;
@@ -490,6 +510,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.caidfoot.workin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "WorkIn Developement";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -502,10 +523,12 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"WorkIn/Preview Content\"";
-				DEVELOPMENT_TEAM = KG6VS5LC9A;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = KG6VS5LC9A;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = WorkIn/Info.plist;
@@ -524,6 +547,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.caidfoot.workin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "WorkIn Developement";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -578,6 +602,22 @@
 				minimumVersion = 4.5.2;
 			};
 		};
+		F402A68A2EA2014F00A2CBBE /* XCRemoteSwiftPackageReference "Superwall-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/superwall/Superwall-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.9.0;
+			};
+		};
+		F402A68D2EA2076400A2CBBE /* XCRemoteSwiftPackageReference "purchases-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.44.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -615,6 +655,21 @@
 			isa = XCSwiftPackageProductDependency;
 			package = F4011BDA2EA082CA00B1C94E /* XCRemoteSwiftPackageReference "lottie-spm" */;
 			productName = Lottie;
+		};
+		F402A68B2EA2014F00A2CBBE /* SuperwallKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F402A68A2EA2014F00A2CBBE /* XCRemoteSwiftPackageReference "Superwall-iOS" */;
+			productName = SuperwallKit;
+		};
+		F402A6912EA5647F00A2CBBE /* RevenueCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F402A68D2EA2076400A2CBBE /* XCRemoteSwiftPackageReference "purchases-ios" */;
+			productName = RevenueCat;
+		};
+		F402A6932EA5648500A2CBBE /* RevenueCatUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F402A68D2EA2076400A2CBBE /* XCRemoteSwiftPackageReference "purchases-ios" */;
+			productName = RevenueCatUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -6,6 +6,7 @@ import SwiftUI
 import AuthenticationServices
 import CryptoKit
 import GoogleSignIn
+import RevenueCat
 
 class AuthenticationManager: ObservableObject {
     @Published var user: User?
@@ -69,6 +70,9 @@ class AuthenticationManager: ObservableObject {
             print("🔥 Firebase Auth: Sign in successful for user: \(result.user.email ?? "unknown")")
             user = result.user
             isAuthenticated = true
+
+            // Link RevenueCat to this user
+            await linkRevenueCatUser(userId: result.user.uid)
         } catch {
             print("🔥 Firebase Auth: Sign in failed with error: \(error)")
             throw error
@@ -82,6 +86,9 @@ class AuthenticationManager: ObservableObject {
             print("🔥 Firebase Auth: Sign up successful for user: \(result.user.email ?? "unknown")")
             user = result.user
             isAuthenticated = true
+
+            // Link RevenueCat to this user
+            await linkRevenueCatUser(userId: result.user.uid)
         } catch {
             print("🔥 Firebase Auth: Sign up failed with error: \(error)")
             throw error
@@ -89,6 +96,11 @@ class AuthenticationManager: ObservableObject {
     }
 
     func signOut() throws {
+        // Log out of RevenueCat first
+        Task {
+            await logOutRevenueCatUser()
+        }
+
         try Auth.auth().signOut()
         user = nil
         isAuthenticated = false
@@ -176,6 +188,39 @@ class AuthenticationManager: ObservableObject {
         return Auth.auth().currentUser?.providerData.map { $0.providerID } ?? []
     }
 
+    // MARK: - RevenueCat User Management
+
+    private func linkRevenueCatUser(userId: String) async {
+        do {
+            let (customerInfo, created) = try await Purchases.shared.logIn(userId)
+            print("💳 RevenueCat: User logged in - UserID: \(userId), Created: \(created)")
+            print("💳 RevenueCat: Subscription status: \(customerInfo.entitlements.active.isEmpty ? "Free" : "Premium")")
+
+            // Update subscription manager
+            await MainActor.run {
+                SubscriptionManager.shared.customerInfo = customerInfo
+                SubscriptionManager.shared.isSubscribed = !customerInfo.entitlements.active.isEmpty
+            }
+        } catch {
+            print("❌ RevenueCat: Failed to log in user: \(error.localizedDescription)")
+        }
+    }
+
+    private func logOutRevenueCatUser() async {
+        do {
+            let customerInfo = try await Purchases.shared.logOut()
+            print("💳 RevenueCat: User logged out, switched to anonymous")
+
+            // Update subscription manager
+            await MainActor.run {
+                SubscriptionManager.shared.customerInfo = customerInfo
+                SubscriptionManager.shared.isSubscribed = !customerInfo.entitlements.active.isEmpty
+            }
+        } catch {
+            print("❌ RevenueCat: Failed to log out user: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Apple Sign In
 
     private var currentNonce: String?
@@ -226,6 +271,9 @@ class AuthenticationManager: ObservableObject {
         print("🔥 Firebase Auth: Apple Sign In successful for user: \(result.user.email ?? "unknown")")
         user = result.user
         isAuthenticated = true
+
+        // Link RevenueCat to this user
+        await linkRevenueCatUser(userId: result.user.uid)
     }
 
     // MARK: - Google Sign In
@@ -256,6 +304,9 @@ class AuthenticationManager: ObservableObject {
         print("🔥 Firebase Auth: Google Sign In successful for user: \(authResult.user.email ?? "unknown")")
         user = authResult.user
         isAuthenticated = true
+
+        // Link RevenueCat to this user
+        await linkRevenueCatUser(userId: authResult.user.uid)
     }
 
     // MARK: - Helper Functions

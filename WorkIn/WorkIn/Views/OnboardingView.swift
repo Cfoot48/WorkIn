@@ -221,6 +221,9 @@ struct OnboardingView: View {
 
         // Force save profile to Firestore after onboarding completes
         await profileStore.saveProfileExplicitly()
+
+        // Show paywall after onboarding
+        SubscriptionManager.shared.presentPaywall(event: "onboarding_complete")
     }
 
     private func containsInappropriateContent(_ text: String) -> Bool {

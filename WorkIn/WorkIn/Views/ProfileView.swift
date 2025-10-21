@@ -286,6 +286,16 @@ struct ProfileMenuView: View {
                 }
             )
 
+            // DEBUG: Test Paywall
+            ProfileMenuItem(
+                icon: "dollarsign.circle",
+                title: "Test Paywall (DEBUG)",
+                action: {
+                    print("🧪 Testing paywall presentation...")
+                    SubscriptionManager.shared.presentPaywall(event: "show_paywall")
+                }
+            )
+
             // DEBUG: Reset Onboarding
             ProfileMenuItem(
                 icon: "arrow.counterclockwise",
