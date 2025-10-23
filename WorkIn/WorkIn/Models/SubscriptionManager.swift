@@ -9,6 +9,7 @@ class SubscriptionManager: NSObject, ObservableObject {
     @Published var isSubscribed: Bool = false
     @Published var currentOffering: Offering?
     @Published var customerInfo: CustomerInfo?
+    @Published var isCheckingSubscription: Bool = true
 
     private override init() {
         // Initialize in configure()
@@ -19,12 +20,17 @@ class SubscriptionManager: NSObject, ObservableObject {
 
     func configure() {
         // Configure RevenueCat
+        print("🔧 RevenueCat: Configuring with API key...")
         Purchases.logLevel = .debug
         Purchases.configure(withAPIKey: "appl_qhYDaDuCpmWIFlePeHHOtWPuXJy")
 
+        // Log RevenueCat app user ID
+        print("🆔 RevenueCat: App User ID: \(Purchases.shared.appUserID)")
+        print("🆔 RevenueCat: Is Anonymous: \(Purchases.shared.isAnonymous)")
+
         // Configure Superwall with options
         let options = SuperwallOptions()
-        options.logging.level = .debug
+        options.logging.level = .warn  // Changed from .debug to .warn to reduce noise
         Superwall.configure(apiKey: "pk_R2s0Tvy_62RLYN-hVK4SM", options: options)
 
         // Set up delegates
@@ -49,6 +55,7 @@ class SubscriptionManager: NSObject, ObservableObject {
         Superwall.shared.delegate = self
 
         print("🔗 Superwall: Connected to RevenueCat via delegate")
+        print("💳 Superwall: Configured to work with RevenueCat")
 
         // IMPORTANT: Sync products from RevenueCat to Superwall
         // This makes product pricing available in Superwall paywalls
@@ -88,16 +95,63 @@ class SubscriptionManager: NSObject, ObservableObject {
     func checkSubscriptionStatus() {
         Task {
             do {
+                print("🔄 SubscriptionManager: Checking subscription status...")
                 let customerInfo = try await Purchases.shared.customerInfo()
+
+                print("\n========================================")
+                print("📊 RevenueCat Customer Info:")
+                print("========================================")
+                print("   - User ID: \(customerInfo.originalAppUserId)")
+                print("   - Active Entitlements: \(customerInfo.entitlements.active.count)")
+                print("   - All Entitlements: \(customerInfo.entitlements.all.keys.joined(separator: ", "))")
+
+                // Log ALL entitlements, not just active ones
+                print("\n🔍 Detailed Entitlement Breakdown:")
+                for (key, entitlement) in customerInfo.entitlements.all {
+                    print("   📦 Entitlement: '\(key)'")
+                    print("      - Product ID: \(entitlement.productIdentifier)")
+                    print("      - Is Active: \(entitlement.isActive)")
+                    print("      - Expires: \(entitlement.expirationDate?.description ?? "Never")")
+                    print("      - Will Renew: \(entitlement.willRenew)")
+                }
+
+                // Log active purchases
+                print("\n💰 Active Subscriptions:")
+                for productId in customerInfo.activeSubscriptions {
+                    print("   ✅ Product: \(productId)")
+                }
+
+                // Log all purchases
+                print("\n📜 All Purchased Product IDs:")
+                for productId in customerInfo.allPurchasedProductIdentifiers {
+                    print("   • \(productId)")
+                }
+
+                print("========================================\n")
+
+                for (key, entitlement) in customerInfo.entitlements.active {
+                    print("   ✅ Active: \(key)")
+                    print("      - Product ID: \(entitlement.productIdentifier)")
+                    print("      - Expires: \(entitlement.expirationDate?.description ?? "Never")")
+                    print("      - Will Renew: \(entitlement.willRenew)")
+                }
+
+                let hasActiveSubscription = !customerInfo.entitlements.active.isEmpty
+
                 await MainActor.run {
                     self.customerInfo = customerInfo
-                    self.isSubscribed = !customerInfo.entitlements.active.isEmpty
+                    self.isSubscribed = hasActiveSubscription
+                    self.isCheckingSubscription = false
+                    print("✅ SubscriptionManager: Subscription check complete - isSubscribed: \(self.isSubscribed)")
                 }
 
                 // Also fetch offerings to ensure products are loaded for Superwall
                 await fetchAndCacheOfferings()
             } catch {
                 print("❌ Error fetching customer info: \(error.localizedDescription)")
+                await MainActor.run {
+                    self.isCheckingSubscription = false
+                }
             }
         }
     }
@@ -235,9 +289,19 @@ class SubscriptionManager: NSObject, ObservableObject {
 
 extension SubscriptionManager: PurchasesDelegate {
     func purchases(_ purchases: Purchases, receivedUpdated customerInfo: CustomerInfo) {
+        print("\n========================================")
+        print("🔔 PurchasesDelegate: Received updated customer info")
+        print("========================================")
+        print("   - User ID: \(customerInfo.originalAppUserId)")
+        print("   - Active Entitlements: \(customerInfo.entitlements.active.count)")
+        print("   - Entitlement Keys: \(customerInfo.entitlements.active.keys.joined(separator: ", "))")
+        print("   - Active Subscriptions: \(customerInfo.activeSubscriptions.joined(separator: ", "))")
+        print("========================================\n")
+
         DispatchQueue.main.async {
             self.customerInfo = customerInfo
             self.isSubscribed = !customerInfo.entitlements.active.isEmpty
+            print("✅ Updated isSubscribed to: \(self.isSubscribed)")
         }
 
         // Update Superwall attributes
@@ -252,15 +316,39 @@ extension SubscriptionManager: PurchasesDelegate {
 extension SubscriptionManager: SuperwallDelegate {
     func handleSuperwallEvent(withInfo eventInfo: SuperwallEventInfo) {
         // Log Superwall events for debugging
+        print("🎭 Superwall Event: \(eventInfo.event)")
+
         switch eventInfo.event {
         case .paywallOpen:
             print("📱 Superwall: Paywall opened")
         case .paywallClose:
-            print("📱 Superwall: Paywall closed")
+            print("📱 Superwall: Paywall closed - refreshing subscription status")
+            // Refresh subscription status when paywall closes
+            checkSubscriptionStatus()
         case .transactionComplete:
-            print("✅ Superwall: Transaction completed")
+            print("✅ Superwall: Transaction completed - refreshing subscription status")
+            // IMPORTANT: Force RevenueCat to sync the receipt immediately
+            Task {
+                do {
+                    print("🔄 Forcing RevenueCat to restore purchases and sync receipt...")
+                    try await self.restorePurchases()
+                    print("✅ RevenueCat restore complete")
+                } catch {
+                    print("❌ Error restoring purchases: \(error.localizedDescription)")
+                }
+            }
         case .subscriptionStart:
-            print("🎉 Superwall: Subscription started")
+            print("🎉 Superwall: Subscription started - refreshing subscription status")
+            // IMPORTANT: Force RevenueCat to sync the receipt immediately
+            Task {
+                do {
+                    print("🔄 Forcing RevenueCat to restore purchases and sync receipt...")
+                    try await self.restorePurchases()
+                    print("✅ RevenueCat restore complete")
+                } catch {
+                    print("❌ Error restoring purchases: \(error.localizedDescription)")
+                }
+            }
         default:
             break
         }

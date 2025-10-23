@@ -1,4 +1,5 @@
 import SwiftUI
+import AuthenticationServices
 
 struct AuthenticationView: View {
     @EnvironmentObject var authManager: AuthenticationManager
@@ -8,18 +9,19 @@ struct AuthenticationView: View {
     @EnvironmentObject var profileStore: UserProfileStore
     @EnvironmentObject var chatManager: ChatManager
     @EnvironmentObject var templateStore: TemplateStore
+    @StateObject private var subscriptionManager = SubscriptionManager.shared
     @State private var isSignUp = false
 
     var body: some View {
         Group {
             if authManager.isAuthenticated {
-                if profileStore.isLoadingProfile {
-                    // Show loading indicator while checking onboarding status
+                if profileStore.isLoadingProfile || subscriptionManager.isCheckingSubscription {
+                    // Show loading indicator while checking onboarding status and subscription
                     VStack(spacing: 20) {
                         SwiftUI.ProgressView()
                             .scaleEffect(1.5)
                             .tint(DesignSystem.Colors.primary)
-                        Text("Loading profile...")
+                        Text(profileStore.isLoadingProfile ? "Loading profile..." : "Checking subscription...")
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -28,6 +30,10 @@ struct AuthenticationView: View {
                         profileStore: profileStore,
                         isCompleted: $profileStore.hasCompletedOnboarding
                     )
+                } else if !subscriptionManager.isSubscribed {
+                    // User completed onboarding but hasn't subscribed yet
+                    // Show a message and present the paywall
+                    PaywallRequiredView()
                 } else {
                     ContentView()
                         .environmentObject(authManager)
@@ -282,8 +288,7 @@ struct SocialSignInButtons: View {
             }
             .disabled(isLoading)
 
-            // Apple Sign In Button (commented out until Apple Developer account is configured)
-            /*
+            // Apple Sign In Button
             Button(action: signInWithApple) {
                 HStack {
                     Image(systemName: "apple.logo")
@@ -298,7 +303,6 @@ struct SocialSignInButtons: View {
                 .cornerRadius(10)
             }
             .disabled(isLoading)
-            */
 
             if !errorMessage.isEmpty {
                 Text(errorMessage)
@@ -327,7 +331,27 @@ struct SocialSignInButtons: View {
             } catch {
                 await MainActor.run {
                     isLoading = false
-                    errorMessage = error.localizedDescription
+
+                    // Handle specific Apple Sign In errors
+                    if let authError = error as? ASAuthorizationError {
+                        switch authError.code {
+                        case .canceled:
+                            errorMessage = "Sign in was canceled"
+                        case .failed:
+                            errorMessage = "Apple Sign In failed. Please try again or use email/password."
+                        case .unknown:
+                            errorMessage = "Apple Sign In encountered an error. Please try again or use email/password."
+                        case .invalidResponse:
+                            errorMessage = "Invalid response from Apple. Please try again."
+                        case .notHandled:
+                            errorMessage = "Apple Sign In could not be completed. Please try again."
+                        @unknown default:
+                            errorMessage = "Apple Sign In failed. Please try again or use email/password."
+                        }
+                    } else {
+                        errorMessage = error.localizedDescription
+                    }
+
                     showError = true
                     print("🍎 Apple Sign In Error: \(error)")
                 }
@@ -351,6 +375,70 @@ struct SocialSignInButtons: View {
                     errorMessage = error.localizedDescription
                     showError = true
                     print("🔴 Google Sign In Error: \(error)")
+                }
+            }
+        }
+    }
+}
+
+struct PaywallRequiredView: View {
+    @ObservedObject private var subscriptionManager = SubscriptionManager.shared
+    @State private var showPaywall = false
+
+    var body: some View {
+        // Automatically navigate away when subscription becomes active
+        if subscriptionManager.isSubscribed {
+            // Return empty view - parent will show ContentView
+            EmptyView()
+        } else {
+            VStack(spacing: 30) {
+                Spacer()
+
+                // Icon
+                Image(systemName: "star.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(DesignSystem.Colors.primary)
+
+                // Title
+                Text("Unlock Premium")
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundColor(.primary)
+
+                // Subtitle
+                Text("Subscribe to access all features and start your fitness journey")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+
+                Spacer()
+
+                // Subscribe Button
+                Button(action: {
+                    print("💰 Presenting paywall from PaywallRequiredView")
+                    subscriptionManager.presentPaywall(event: "subscription_required")
+                }) {
+                    HStack {
+                        Image(systemName: "crown.fill")
+                        Text("Subscribe Now")
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(DesignSystem.Colors.primary)
+                    .cornerRadius(12)
+                }
+                .padding(.horizontal, 40)
+                .padding(.bottom, 40)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(.systemBackground))
+            .onAppear {
+                // Automatically show paywall when this view appears
+                print("💰 PaywallRequiredView appeared, presenting paywall")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    subscriptionManager.presentPaywall(event: "subscription_required")
                 }
             }
         }

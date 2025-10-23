@@ -224,6 +224,7 @@ class AuthenticationManager: ObservableObject {
     // MARK: - Apple Sign In
 
     private var currentNonce: String?
+    private var appleSignInCoordinator: AppleSignInCoordinator?
 
     func signInWithApple() async throws {
         let nonce = randomNonceString()
@@ -240,12 +241,17 @@ class AuthenticationManager: ObservableObject {
         // The result will be handled by the coordinator
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             Task { @MainActor in
+                // Keep a strong reference to the coordinator to prevent it from being deallocated
                 let coordinator = AppleSignInCoordinator(continuation: continuation, authManager: self)
+                self.appleSignInCoordinator = coordinator
                 authorizationController.delegate = coordinator
                 authorizationController.presentationContextProvider = coordinator
                 authorizationController.performRequests()
             }
         }
+
+        // Clear the coordinator reference after completion
+        appleSignInCoordinator = nil
     }
 
     func handleAppleSignInCompletion(authorization: ASAuthorization) async throws {
@@ -370,6 +376,23 @@ class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAut
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        print("🍎 Apple Sign In Error: \(error)")
+        if let authError = error as? ASAuthorizationError {
+            switch authError.code {
+            case .canceled:
+                print("🍎 User canceled Apple Sign In")
+            case .failed:
+                print("🍎 Apple Sign In failed")
+            case .invalidResponse:
+                print("🍎 Invalid response from Apple")
+            case .notHandled:
+                print("🍎 Apple Sign In not handled")
+            case .unknown:
+                print("🍎 Unknown Apple Sign In error")
+            @unknown default:
+                print("🍎 Unknown Apple Sign In error: \(authError.code.rawValue)")
+            }
+        }
         continuation.resume(throwing: error)
     }
 }
