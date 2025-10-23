@@ -16,10 +16,8 @@ struct ActiveExerciseView: View {
     @State private var restTime: Double = 60
     @State private var sets: [ExerciseSet]
     @State private var showingDeleteConfirmation = false
-    @State private var restTimerActive = false
-    @State private var restTimeRemaining: Double = 0
-    @State private var restTimer: Timer?
     @State private var showTrackingHelp = false
+    @ObservedObject private var timerManager = RestTimerManager.shared
 
     let onUpdateSets: ([ExerciseSet]) -> Void
     let onDeleteExercise: (() -> Void)?
@@ -200,7 +198,7 @@ struct ActiveExerciseView: View {
             }
 
             // Rest timer appears between existing sets and add new set section
-            if restTimerActive {
+            if timerManager.isActive {
                 restTimerView
             }
 
@@ -300,7 +298,7 @@ struct ActiveExerciseView: View {
             }
 
             // Show rest time selector only when timer is not active
-            if !restTimerActive {
+            if !timerManager.isActive {
                 HStack {
                     Text("Rest Time: \(Int(restTime))s")
                         .font(.caption)
@@ -337,7 +335,7 @@ struct ActiveExerciseView: View {
                     .foregroundColor(.secondary)
                 Spacer()
                 Button("Skip") {
-                    stopRestTimer()
+                    timerManager.skipTimer()
                 }
                 .font(.caption)
                 .buttonStyle(.bordered)
@@ -345,10 +343,10 @@ struct ActiveExerciseView: View {
             }
 
             HStack {
-                Text("\(Int(restTimeRemaining))s")
+                Text("\(Int(timerManager.timeRemaining))s")
                     .font(.title)
                     .fontWeight(.bold)
-                    .foregroundColor(restTimeRemaining <= 10 ? .red : .blue)
+                    .foregroundColor(timerManager.timeRemaining <= 10 ? .red : .blue)
                     .frame(maxWidth: .infinity)
             }
 
@@ -360,15 +358,15 @@ struct ActiveExerciseView: View {
                         .cornerRadius(4)
 
                     Rectangle()
-                        .fill(restTimeRemaining <= 10 ? Color.red : Color.blue)
-                        .frame(width: geometry.size.width * CGFloat(restTimeRemaining / restTime), height: 8)
+                        .fill(timerManager.timeRemaining <= 10 ? Color.red : Color.blue)
+                        .frame(width: geometry.size.width * CGFloat(timerManager.timeRemaining / timerManager.totalTime), height: 8)
                         .cornerRadius(4)
                 }
             }
             .frame(height: 8)
         }
         .padding()
-        .background(restTimeRemaining <= 10 ? Color.red.opacity(0.1) : Color.blue.opacity(0.1))
+        .background(timerManager.timeRemaining <= 10 ? Color.red.opacity(0.1) : Color.blue.opacity(0.1))
         .cornerRadius(8)
     }
 
@@ -407,27 +405,6 @@ struct ActiveExerciseView: View {
         hideKeyboard()
     }
 
-    private func startRestTimer() {
-        restTimeRemaining = restTime
-        restTimerActive = true
-
-        restTimer?.invalidate()
-        restTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            if restTimeRemaining > 0 {
-                restTimeRemaining -= 1
-            } else {
-                stopRestTimer()
-            }
-        }
-    }
-
-    private func stopRestTimer() {
-        restTimer?.invalidate()
-        restTimer = nil
-        restTimerActive = false
-        restTimeRemaining = 0
-    }
-
     private func toggleSetCompletion(at index: Int) {
         guard index >= 0 && index < sets.count else { return }
         var updatedSets = sets
@@ -435,7 +412,7 @@ struct ActiveExerciseView: View {
 
         // Start rest timer when completing a set
         if updatedSets[index].completed {
-            startRestTimer()
+            timerManager.startTimer(duration: restTime)
         }
 
         sets = updatedSets

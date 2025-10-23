@@ -30,6 +30,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         WorkoutTemplateDatabase.loadTemplates()
         print("📋 Loaded \(WorkoutTemplateDatabase.templates.count) workout templates")
 
+        // Request notification permissions for rest timer
+        NSLog("🔔 Requesting notification permissions...")
+        RestTimerManager.shared.requestNotificationPermission()
+
         return true
     }
 }
