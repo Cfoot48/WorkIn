@@ -423,7 +423,8 @@
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-			};
+			
+				CODE_SIGN_ENTITLEMENTS = WorkIn/WorkIn.entitlements;};
 			name = Debug;
 		};
 		CE1F71B92CAE00002900ABCD /* Release */ = {
@@ -477,7 +478,8 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				VALIDATE_PRODUCT = YES;
-			};
+			
+				CODE_SIGN_ENTITLEMENTS = WorkIn/WorkIn.entitlements;};
 			name = Release;
 		};
 		CE1F71BB2CAE00002900ABCD /* Debug */ = {
@@ -514,7 +516,8 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-			};
+			
+				CODE_SIGN_ENTITLEMENTS = WorkIn/WorkIn.entitlements;};
 			name = Debug;
 		};
 		CE1F71BC2CAE00002900ABCD /* Release */ = {
@@ -551,7 +554,8 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-			};
+			
+				CODE_SIGN_ENTITLEMENTS = WorkIn/WorkIn.entitlements;};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */

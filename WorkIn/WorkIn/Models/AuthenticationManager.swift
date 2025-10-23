@@ -192,17 +192,44 @@ class AuthenticationManager: ObservableObject {
 
     private func linkRevenueCatUser(userId: String) async {
         do {
+            print("💳 RevenueCat: Attempting to log in user with ID: \(userId)")
             let (customerInfo, created) = try await Purchases.shared.logIn(userId)
-            print("💳 RevenueCat: User logged in - UserID: \(userId), Created: \(created)")
-            print("💳 RevenueCat: Subscription status: \(customerInfo.entitlements.active.isEmpty ? "Free" : "Premium")")
+
+            print("\n========================================")
+            print("💳 RevenueCat: User Login Complete")
+            print("========================================")
+            print("   - User ID: \(userId)")
+            print("   - Created: \(created)")
+            print("   - Active Entitlements: \(customerInfo.entitlements.active.count)")
+            print("   - Entitlement Keys: \(customerInfo.entitlements.active.keys.joined(separator: ", "))")
+            print("   - Active Subscriptions: \(customerInfo.activeSubscriptions.joined(separator: ", "))")
+            print("   - All Purchased Products: \(customerInfo.allPurchasedProductIdentifiers.joined(separator: ", "))")
+            print("========================================\n")
 
             // Update subscription manager
             await MainActor.run {
                 SubscriptionManager.shared.customerInfo = customerInfo
                 SubscriptionManager.shared.isSubscribed = !customerInfo.entitlements.active.isEmpty
+                SubscriptionManager.shared.isCheckingSubscription = false
+                print("✅ Updated isSubscribed to: \(SubscriptionManager.shared.isSubscribed)")
+            }
+
+            // If no entitlements but user thinks they should have subscription, restore purchases
+            if customerInfo.entitlements.active.isEmpty {
+                print("⚠️ No active entitlements found. Attempting to restore purchases...")
+                try await Purchases.shared.restorePurchases()
+                print("✅ Restore purchases completed. Checking subscription status again...")
+
+                // Check subscription status one more time after restore
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    SubscriptionManager.shared.checkSubscriptionStatus()
+                }
             }
         } catch {
             print("❌ RevenueCat: Failed to log in user: \(error.localizedDescription)")
+            await MainActor.run {
+                SubscriptionManager.shared.isCheckingSubscription = false
+            }
         }
     }
 
