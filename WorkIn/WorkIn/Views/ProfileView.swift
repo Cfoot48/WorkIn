@@ -285,28 +285,6 @@ struct ProfileMenuView: View {
                     }
                 }
             )
-
-            // DEBUG: Test Paywall
-            ProfileMenuItem(
-                icon: "dollarsign.circle",
-                title: "Test Paywall (DEBUG)",
-                action: {
-                    print("🧪 Testing paywall presentation...")
-                    SubscriptionManager.shared.presentPaywall(event: "show_paywall")
-                }
-            )
-
-            // DEBUG: Reset Onboarding
-            ProfileMenuItem(
-                icon: "arrow.counterclockwise",
-                title: "Reset Onboarding (DEBUG)",
-                action: {
-                    UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
-                    UserDefaults.standard.removeObject(forKey: "userProfile")
-                    profileStore.resetProfile()
-                    print("🔄 Onboarding reset - you should now see onboarding")
-                }
-            )
         }
     }
 }

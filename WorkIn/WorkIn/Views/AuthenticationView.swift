@@ -50,7 +50,7 @@ struct AuthenticationView: View {
                     VStack(spacing: 20) {
                         Image(systemName: "dumbbell.fill")
                             .font(.system(size: 80))
-                            .foregroundColor(.blue)
+                            .foregroundColor(DesignSystem.Colors.primary)
 
                         Text("WorkIn")
                             .font(.largeTitle)
@@ -71,7 +71,7 @@ struct AuthenticationView: View {
                         Button(action: { isSignUp.toggle() }) {
                             Text(isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up")
                                 .font(.footnote)
-                                .foregroundColor(.blue)
+                                .foregroundColor(DesignSystem.Colors.primary)
                         }
 
                         // Divider
@@ -140,7 +140,7 @@ struct SignInView: View {
             }
             .frame(maxWidth: .infinity)
             .padding()
-            .background(Color.blue)
+            .background(DesignSystem.Colors.primary)
             .foregroundColor(.white)
             .cornerRadius(10)
             .disabled(email.isEmpty || password.isEmpty || isLoading)
@@ -212,7 +212,7 @@ struct SignUpView: View {
             }
             .frame(maxWidth: .infinity)
             .padding()
-            .background(Color.blue)
+            .background(DesignSystem.Colors.primary)
             .foregroundColor(.white)
             .cornerRadius(10)
             .disabled(!isValidForm || isLoading)
