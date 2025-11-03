@@ -91,6 +91,36 @@ struct AuthenticationView: View {
                         // Social Sign In Buttons
                         SocialSignInButtons(authManager: authManager)
 
+                        // Privacy Policy & Terms of Service links
+                        HStack(spacing: 8) {
+                            Button(action: {
+                                if let url = URL(string: "https://sites.google.com/view/theworkinapp/privacy-policy") {
+                                    UIApplication.shared.open(url)
+                                }
+                            }) {
+                                Text("Privacy Policy")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                    .underline()
+                            }
+
+                            Text("•")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+
+                            Button(action: {
+                                if let url = URL(string: "https://sites.google.com/view/theworkinapp/terms-of-service") {
+                                    UIApplication.shared.open(url)
+                                }
+                            }) {
+                                Text("Terms of Service")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                    .underline()
+                            }
+                        }
+                        .padding(.top, 8)
+
                         Spacer()
                     }
                     .padding()

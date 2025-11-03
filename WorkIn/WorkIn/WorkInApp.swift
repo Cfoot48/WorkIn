@@ -30,9 +30,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         WorkoutTemplateDatabase.loadTemplates()
         print("📋 Loaded \(WorkoutTemplateDatabase.templates.count) workout templates")
 
-        // Request notification permissions for rest timer
+        // Request notification permissions for rest timer and free trial reminders
         NSLog("🔔 Requesting notification permissions...")
         RestTimerManager.shared.requestNotificationPermission()
+        NotificationManager.shared.requestNotificationPermission()
 
         return true
     }
@@ -126,6 +127,9 @@ struct WorkInApp: App {
             workoutStore?.clearDataAndListeners()
             nutritionStore?.clearDataAndListeners()
             profileStore?.resetProfile()
+
+            // Reset notification state on sign out
+            NotificationManager.shared.resetNotificationState()
         }
     }
 }

@@ -483,13 +483,16 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var authManager: AuthenticationManager
     @EnvironmentObject var themeManager: ThemeManager
+    @StateObject private var subscriptionManager = SubscriptionManager.shared
     @State private var notificationsEnabled = true
     @State private var showingSignOutConfirmation = false
     @State private var showingDeleteConfirmation = false
     @State private var showingReauthentication = false
     @State private var isDeleting = false
+    @State private var isRestoring = false
     @State private var errorMessage = ""
     @State private var showError = false
+    @State private var showRestoreSuccess = false
     @State private var reauthPassword = ""
 
     private var isGoogleUser: Bool {
@@ -525,9 +528,31 @@ struct SettingsView: View {
                 }
 
                 Section("Account") {
-                    Button("Export Data") { }
-                    Button("Privacy Policy") { }
-                    Button("Terms of Service") { }
+                    Button("Privacy Policy") {
+                        if let url = URL(string: "https://sites.google.com/view/theworkinapp/privacy-policy") {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                    Button("Terms of Service") {
+                        if let url = URL(string: "https://sites.google.com/view/theworkinapp/terms-of-service") {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+
+                    Button(action: restorePurchases) {
+                        HStack {
+                            if isRestoring {
+                                SwiftUI.ProgressView()
+                                    .tint(DesignSystem.Colors.primary)
+                            } else {
+                                Text("Restore Purchases")
+                                Spacer()
+                                Image(systemName: "arrow.clockwise.circle.fill")
+                                    .foregroundColor(DesignSystem.Colors.primary)
+                            }
+                        }
+                    }
+                    .disabled(isRestoring)
                 }
 
                 Section {
@@ -599,9 +624,58 @@ struct SettingsView: View {
             .alert("Error", isPresented: $showError) {
                 Button("OK", role: .cancel) {
                     isDeleting = false
+                    isRestoring = false
                 }
             } message: {
                 Text(errorMessage)
+            }
+            .alert("Success", isPresented: $showRestoreSuccess) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Your purchases have been restored successfully!")
+            }
+        }
+    }
+
+    private func restorePurchases() {
+        isRestoring = true
+        Task {
+            do {
+                print("🔄 SettingsView: Attempting to restore purchases")
+                try await subscriptionManager.restorePurchases()
+                if subscriptionManager.isSubscribed {
+                    print("✅ SettingsView: Restore successful - subscription found")
+                    await MainActor.run {
+                        showRestoreSuccess = true
+                    }
+                } else {
+                    print("ℹ️ SettingsView: Restore complete - no active subscriptions found")
+                    await MainActor.run {
+                        errorMessage = "No previous purchases found. If you've already subscribed, please wait a few moments for Apple's servers to sync."
+                        showError = true
+                    }
+                }
+            } catch {
+                print("❌ SettingsView: Restore failed - \(error)")
+
+                let userMessage: String
+                let errorDescription = error.localizedDescription.lowercased()
+
+                if errorDescription.contains("temporarily unavailable") {
+                    userMessage = "Account temporarily unavailable. Please wait a few minutes and try again."
+                } else if errorDescription.contains("network") || errorDescription.contains("internet") {
+                    userMessage = "Network error. Please check your internet connection and try again."
+                } else {
+                    userMessage = "Unable to restore purchases. Please try again.\n\nError: \(error.localizedDescription)"
+                }
+
+                await MainActor.run {
+                    errorMessage = userMessage
+                    showError = true
+                }
+            }
+            await MainActor.run {
+                isRestoring = false
             }
         }
     }

@@ -49,7 +49,10 @@ struct OnboardingView: View {
                 DisplayNamePage(displayName: $displayName)
                     .tag(1)
                     .onAppear {
-                        // Don't dismiss keyboard when appearing on this page
+                        // Pre-fill display name if already set from Apple/Google Sign In
+                        if displayName.isEmpty && !profileStore.profile.displayName.isEmpty {
+                            displayName = profileStore.profile.displayName
+                        }
                     }
                     .onDisappear {
                         // Dismiss keyboard when leaving this page
@@ -97,6 +100,7 @@ struct OnboardingView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .animation(.easeInOut, value: currentPage)
+            .gesture(DragGesture().onChanged({ _ in })) // Disable swipe gestures while allowing other interactions
 
                 // Navigation buttons
                 HStack(spacing: DesignSystem.Spacing.md) {
@@ -296,11 +300,11 @@ enum Gender: String, CaseIterable, Codable {
 }
 
 enum ActivityLevel: String, CaseIterable, Codable {
-    case sedentary = "Sedentary (little to no exercise)"
-    case light = "Light (1-3 workouts/week)"
-    case moderate = "Moderate (3-5 workouts/week)"
-    case active = "Active (6-7 workouts/week)"
-    case veryActive = "Very Active (athlete)"
+    case sedentary = "Sedentary"
+    case light = "Light"
+    case moderate = "Moderate"
+    case active = "Active"
+    case veryActive = "Very Active"
 
     var multiplier: Double {
         switch self {
@@ -311,12 +315,22 @@ enum ActivityLevel: String, CaseIterable, Codable {
         case .veryActive: return 1.9
         }
     }
+
+    var description: String {
+        switch self {
+        case .sedentary: return "Little to no exercise"
+        case .light: return "1-3 workouts/week"
+        case .moderate: return "3-5 workouts/week"
+        case .active: return "6-7 workouts/week"
+        case .veryActive: return "Athlete level training"
+        }
+    }
 }
 
 enum WeightChangeRate: String, CaseIterable, Codable {
-    case slow = "Slow (0.5 lbs/week)"
-    case moderate = "Moderate (1 lb/week)"
-    case fast = "Fast (1.5 lbs/week)"
+    case slow = "Slow"
+    case moderate = "Moderate"
+    case fast = "Fast"
 }
 
 // MARK: - Onboarding Pages
@@ -348,6 +362,8 @@ struct WelcomePage: View {
 
                 Text("WORKIN")
                     .font(.system(size: 48, weight: .heavy, design: .default))
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
                     .foregroundColor(DesignSystem.Colors.primary)
                     .shadow(color: DesignSystem.Colors.primary.opacity(0.5), radius: 20, x: 0, y: 0)
                     .shadow(color: DesignSystem.Colors.primary.opacity(0.35), radius: 35, x: 0, y: 0)
@@ -484,66 +500,77 @@ struct GoalWeightPage: View {
     }
 
     var body: some View {
-        VStack(spacing: DesignSystem.Spacing.xl) {
-            Text("What's your goal?")
-                .font(DesignSystem.Typography.title2)
-                .fontWeight(.bold)
-                .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
+        ScrollView {
+            VStack(spacing: DesignSystem.Spacing.xl) {
+                Text("What's your goal?")
+                    .font(DesignSystem.Typography.title2)
+                    .fontWeight(.bold)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
+                    .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
 
-            VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
-                if let current = Double(currentWeight) {
-                    Text("Current Weight: \(Int(current)) lbs")
-                        .font(DesignSystem.Typography.subheadline)
-                        .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
-                }
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                    if let current = Double(currentWeight) {
+                        Text("Current Weight: \(Int(current)) lbs")
+                            .font(DesignSystem.Typography.subheadline)
+                            .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                    }
 
-                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                    Text("Goal Weight (lbs)")
-                        .font(DesignSystem.Typography.bodyBold)
-                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
-                    TextField("175", text: $goalWeight)
-                        .keyboardType(.decimalPad)
-                        .textFieldStyle(.roundedBorder)
-                }
-
-                // Show goal type
-                if !goalWeight.isEmpty {
-                    HStack {
-                        Text("Goal Type:")
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                        Text("Goal Weight (lbs)")
                             .font(DesignSystem.Typography.bodyBold)
                             .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
-                        Spacer()
-                        Text(goalType)
-                            .font(DesignSystem.Typography.bodyBold)
-                            .foregroundColor(goalTypeColor)
+                        TextField("175", text: $goalWeight)
+                            .keyboardType(.decimalPad)
+                            .textFieldStyle(.roundedBorder)
                     }
-                    .padding(DesignSystem.Spacing.md)
-                    .background(DesignSystem.Colors.card(for: colorScheme))
-                    .cornerRadius(DesignSystem.CornerRadius.sm)
-                }
 
-                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                    Text("How quickly do you want to reach your goal?")
-                        .font(DesignSystem.Typography.bodyBold)
-                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
-
-                    Picker("Rate", selection: $weightChangeRate) {
-                        ForEach(WeightChangeRate.allCases, id: \.self) { rate in
-                            Text(rate.rawValue).tag(rate)
+                    // Show goal type
+                    if !goalWeight.isEmpty {
+                        HStack {
+                            Text("Goal Type:")
+                                .font(DesignSystem.Typography.bodyBold)
+                                .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
+                            Spacer()
+                            Text(goalType)
+                                .font(DesignSystem.Typography.bodyBold)
+                                .minimumScaleFactor(0.7)
+                                .lineLimit(1)
+                                .foregroundColor(goalTypeColor)
                         }
+                        .padding(DesignSystem.Spacing.md)
+                        .background(DesignSystem.Colors.card(for: colorScheme))
+                        .cornerRadius(DesignSystem.CornerRadius.sm)
                     }
-                    .pickerStyle(.segmented)
 
-                    Text("We'll calculate safe calorie targets based on your selection")
-                        .font(DesignSystem.Typography.caption1)
-                        .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                        Text("How quickly do you want to reach your goal?")
+                            .font(DesignSystem.Typography.bodyBold)
+                            .minimumScaleFactor(0.8)
+                            .lineLimit(2)
+                            .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
+
+                        Picker("Rate", selection: $weightChangeRate) {
+                            ForEach(WeightChangeRate.allCases, id: \.self) { rate in
+                                Text(rate.rawValue)
+                                    .minimumScaleFactor(0.6)
+                                    .tag(rate)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+
+                        Text("We'll calculate safe calorie targets based on your selection")
+                            .font(DesignSystem.Typography.caption1)
+                            .minimumScaleFactor(0.9)
+                            .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                    }
                 }
+                .padding(DesignSystem.Spacing.lg)
+
+                Spacer(minLength: 100)
             }
             .padding(DesignSystem.Spacing.lg)
-
-            Spacer()
         }
-        .padding(DesignSystem.Spacing.lg)
     }
 
     private var goalTypeColor: Color {
@@ -587,6 +614,14 @@ struct ActivityPage: View {
                     }
                     .pickerStyle(.wheel)
                     .frame(height: 200)
+
+                    // Show description for selected activity level
+                    Text(activityLevel.description)
+                        .font(DesignSystem.Typography.caption1)
+                        .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, DesignSystem.Spacing.xs)
                 }
 
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
@@ -619,6 +654,7 @@ struct NutritionGoalsPage: View {
     let age: String
     @Binding var proteinGoal: String
     @Environment(\.colorScheme) var colorScheme
+    @State private var showHealthInfo = false
 
     var calculatedCalories: Int {
         guard let current = Double(currentWeight),
@@ -685,15 +721,26 @@ struct NutritionGoalsPage: View {
                     HStack {
                         Text("\(calculatedCalories)")
                             .font(.system(size: 48, weight: .bold))
+                            .minimumScaleFactor(0.6)
+                            .lineLimit(1)
                             .foregroundColor(DesignSystem.Colors.primary)
                         Text("cal/day")
                             .font(DesignSystem.Typography.bodyBold)
+                            .minimumScaleFactor(0.8)
+                            .lineLimit(1)
                             .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
                     }
 
-                    Text("Based on your stats and goals, we recommend this daily calorie intake")
-                        .font(DesignSystem.Typography.caption1)
-                        .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
+                        Text("Based on your stats and goals, we recommend this daily calorie intake")
+                            .font(DesignSystem.Typography.caption1)
+                            .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+
+                        Text("Calculated using Mifflin-St Jeor Equation (scientifically validated BMR formula)")
+                            .font(.system(size: 10))
+                            .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme).opacity(0.7))
+                            .italic()
+                    }
                 }
                 .padding(DesignSystem.Spacing.md)
                 .background(DesignSystem.Colors.card(for: colorScheme))
@@ -719,6 +766,17 @@ struct NutritionGoalsPage: View {
             }
             .padding(DesignSystem.Spacing.lg)
 
+            // Health Information link
+            Button(action: {
+                showHealthInfo = true
+            }) {
+                Text("Health Information")
+                    .font(.system(size: 11))
+                    .foregroundColor(.gray)
+                    .underline()
+            }
+            .padding(.top, DesignSystem.Spacing.xs)
+
             Spacer()
         }
         .padding(DesignSystem.Spacing.lg)
@@ -726,6 +784,9 @@ struct NutritionGoalsPage: View {
             if proteinGoal.isEmpty {
                 proteinGoal = String(recommendedProtein)
             }
+        }
+        .sheet(isPresented: $showHealthInfo) {
+            HealthInformationSheet()
         }
     }
 }
@@ -736,26 +797,18 @@ struct RatingAndContactPage: View {
     var body: some View {
         ScrollView {
             VStack(spacing: DesignSystem.Spacing.xxxl) {
-                // Star icon
-                ZStack {
-                    Circle()
-                        .fill(Color.yellow.opacity(0.2))
-                        .frame(width: 150, height: 150)
-                        .blur(radius: 30)
-
-                    Image(systemName: "star.fill")
-                        .font(.system(size: 70))
-                        .foregroundColor(.yellow)
-                        .shadow(color: .yellow.opacity(0.5), radius: 10)
-                }
-                .padding(.top, DesignSystem.Spacing.lg)
+                Spacer()
+                    .frame(height: DesignSystem.Spacing.xl)
 
                 // Title
                 Text("Like the App?")
                     .font(DesignSystem.Typography.largeTitle)
                     .fontWeight(.bold)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
                     .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
                     .multilineTextAlignment(.center)
+                    .padding(.top, DesignSystem.Spacing.xxl)
 
                 // Rating section
                 VStack(spacing: DesignSystem.Spacing.md) {
@@ -826,6 +879,87 @@ struct RatingAndContactPage: View {
                 Spacer(minLength: DesignSystem.Spacing.xxl)
             }
             .padding(DesignSystem.Spacing.lg)
+        }
+    }
+}
+
+struct HealthInformationSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) var colorScheme
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                    Text("All health and nutrition calculations in this app are based on scientifically validated sources:")
+                        .font(DesignSystem.Typography.body)
+                        .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                        .padding(.bottom, DesignSystem.Spacing.sm)
+
+                    // Mifflin-St Jeor Equation
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                        Text("BMR & Calorie Calculations")
+                            .font(DesignSystem.Typography.bodyBold)
+                            .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
+
+                        Text("Mifflin-St Jeor Equation")
+                            .font(DesignSystem.Typography.caption1)
+                            .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+
+                        Button(action: {
+                            if let url = URL(string: "https://pubmed.ncbi.nlm.nih.gov/2305711/") {
+                                UIApplication.shared.open(url)
+                            }
+                        }) {
+                            Text("View scientific publication")
+                                .font(.system(size: 11))
+                                .foregroundColor(DesignSystem.Colors.primary)
+                                .underline()
+                        }
+                    }
+                    .padding(DesignSystem.Spacing.sm)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(DesignSystem.Colors.card(for: colorScheme))
+                    .cornerRadius(DesignSystem.CornerRadius.sm)
+
+                    // Open Food Facts
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                        Text("Nutrition Database")
+                            .font(DesignSystem.Typography.bodyBold)
+                            .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
+
+                        Text("Open Food Facts - Open database of food products")
+                            .font(DesignSystem.Typography.caption1)
+                            .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+
+                        Button(action: {
+                            if let url = URL(string: "https://world.openfoodfacts.org") {
+                                UIApplication.shared.open(url)
+                            }
+                        }) {
+                            Text("world.openfoodfacts.org")
+                                .font(.system(size: 11))
+                                .foregroundColor(DesignSystem.Colors.primary)
+                                .underline()
+                        }
+                    }
+                    .padding(DesignSystem.Spacing.sm)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(DesignSystem.Colors.card(for: colorScheme))
+                    .cornerRadius(DesignSystem.CornerRadius.sm)
+                }
+                .padding(DesignSystem.Spacing.lg)
+            }
+            .background(DesignSystem.Colors.background(for: colorScheme))
+            .navigationTitle("Health Information")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
         }
     }
 }

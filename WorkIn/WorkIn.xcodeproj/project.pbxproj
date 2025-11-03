@@ -16,6 +16,7 @@
 		4F625FB447FF99CA10FA2F78 /* DSProgressRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA31D09C73427721C03D4B4C /* DSProgressRing.swift */; };
 		58482D1DA4474FDA92CE6C83 /* AIAssistantView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F5BE3201B0140F5A0E08BAA /* AIAssistantView.swift */; };
 		8944A46C23414CFEBAC58D97 /* RestTimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D3D711356C640B988B9E750 /* RestTimerManager.swift */; };
+		8AC948BB62FA2B587E2B3789 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F25CF4C6DB6BF0617755679A /* NotificationManager.swift */; };
 		927C8AD446D3464689337F92 /* AIAssistantModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AEED0DE65BA48BF995B1231 /* AIAssistantModels.swift */; };
 		943391454050B8B2578D7B54 /* DSCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA752B3DA23163221A6B9144 /* DSCard.swift */; };
 		CE1F71B02CAE00002900ABCD /* WorkInApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1F71AF2CAE00002900ABCD /* WorkInApp.swift */; };
@@ -93,6 +94,7 @@
 		CE1F71E42CAE00002900ABCD /* VolumeChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeChartView.swift; sourceTree = "<group>"; };
 		CE48EAE6F6D0776DC6A19556 /* DesignSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		EA31D09C73427721C03D4B4C /* DSProgressRing.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DSProgressRing.swift; sourceTree = "<group>"; };
+		F25CF4C6DB6BF0617755679A /* NotificationManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		F4011BC52E8BAE1000B1C94E /* AuthenticationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationManager.swift; sourceTree = "<group>"; };
 		F4011BC72E8BAE2500B1C94E /* AuthenticationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationView.swift; sourceTree = "<group>"; };
 		F4011BC92E8BB1D600B1C94E /* FirestoreManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirestoreManager.swift; sourceTree = "<group>"; };
@@ -207,6 +209,7 @@
 				CE1F71DA2CAE00002900ABCD /* FoodDatabase.swift */,
 				51EB66D2C21E44F3B5E796D1 /* ChatModels.swift */,
 				9AEED0DE65BA48BF995B1231 /* AIAssistantModels.swift */,
+				F25CF4C6DB6BF0617755679A /* NotificationManager.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -364,6 +367,7 @@
 				4F625FB447FF99CA10FA2F78 /* DSProgressRing.swift in Sources */,
 				2BE7CC875AC095ACFCFA2AA3 /* DSWeightTracker.swift in Sources */,
 				FF66EE55DD44CC33BB22AA11 /* MuscleGroupDiagram.swift in Sources */,
+				8AC948BB62FA2B587E2B3789 /* NotificationManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

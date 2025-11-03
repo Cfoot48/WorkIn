@@ -99,31 +99,51 @@ struct PaywallView: View {
                             .padding(.horizontal, 24)
                         }
 
-                        // Restore Button
+                        // Restore Purchases Button - Prominent per Apple guidelines
                         Button(action: restorePurchases) {
                             HStack {
                                 if isRestoring {
                                     ProgressView()
                                         .tint(.white)
+                                        .scaleEffect(1.2)
                                 } else {
+                                    Image(systemName: "arrow.clockwise.circle.fill")
+                                        .font(.title3)
                                     Text("Restore Purchases")
-                                        .font(.subheadline)
-                                        .foregroundColor(.white.opacity(0.8))
+                                        .font(.headline)
+                                        .fontWeight(.semibold)
                                 }
                             }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.white.opacity(0.2))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.white.opacity(0.5), lineWidth: 2)
+                            )
                         }
                         .disabled(isRestoring)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 8)
 
                         // Terms and Privacy
                         HStack(spacing: 20) {
                             Button("Terms of Service") {
-                                // Open terms
+                                if let url = URL(string: "https://sites.google.com/view/theworkinapp/terms-of-service") {
+                                    UIApplication.shared.open(url)
+                                }
                             }
                             .font(.caption)
                             .foregroundColor(.white.opacity(0.6))
 
                             Button("Privacy Policy") {
-                                // Open privacy
+                                if let url = URL(string: "https://sites.google.com/view/theworkinapp/privacy-policy") {
+                                    UIApplication.shared.open(url)
+                                }
                             }
                             .font(.caption)
                             .foregroundColor(.white.opacity(0.6))
@@ -162,7 +182,8 @@ struct PaywallView: View {
         do {
             offerings = try await subscriptionManager.fetchOfferings()
         } catch {
-            errorMessage = "Failed to load pricing: \(error.localizedDescription)"
+            print("❌ PaywallView: Failed to load offerings - \(error)")
+            errorMessage = "Unable to load pricing information. Please check your internet connection and try again."
         }
         isLoading = false
     }
@@ -170,10 +191,30 @@ struct PaywallView: View {
     private func purchase(package: Package) {
         Task {
             do {
+                print("💳 PaywallView: Attempting purchase of \(package.storeProduct.productIdentifier)")
                 _ = try await subscriptionManager.purchase(package: package)
+                print("✅ PaywallView: Purchase successful")
                 dismiss()
             } catch {
-                errorMessage = "Purchase failed: \(error.localizedDescription)"
+                print("❌ PaywallView: Purchase failed - \(error)")
+
+                // Provide user-friendly error messages
+                let userMessage: String
+                let errorDescription = error.localizedDescription.lowercased()
+
+                if errorDescription.contains("temporarily unavailable") {
+                    userMessage = "This account is temporarily unavailable. If you're using a test account, please wait a few minutes and try again. This is a temporary Apple server issue."
+                } else if errorDescription.contains("unable to complete") {
+                    userMessage = "Unable to complete the purchase request. Please try again in a few moments. If the issue persists, please contact support."
+                } else if errorDescription.contains("cancelled") || errorDescription.contains("canceled") {
+                    userMessage = "Purchase was cancelled."
+                } else if errorDescription.contains("network") || errorDescription.contains("internet") {
+                    userMessage = "Network error. Please check your internet connection and try again."
+                } else {
+                    userMessage = "Purchase failed. Please try again or contact support if the issue persists.\n\nError: \(error.localizedDescription)"
+                }
+
+                errorMessage = userMessage
             }
         }
     }
@@ -182,14 +223,30 @@ struct PaywallView: View {
         isRestoring = true
         Task {
             do {
+                print("🔄 PaywallView: Attempting to restore purchases")
                 try await subscriptionManager.restorePurchases()
                 if subscriptionManager.isSubscribed {
+                    print("✅ PaywallView: Restore successful - subscription found")
                     dismiss()
                 } else {
-                    errorMessage = "No previous purchases found"
+                    print("ℹ️ PaywallView: Restore complete - no active subscriptions found")
+                    errorMessage = "No previous purchases found. If you've already subscribed, please wait a few moments for Apple's servers to sync."
                 }
             } catch {
-                errorMessage = "Restore failed: \(error.localizedDescription)"
+                print("❌ PaywallView: Restore failed - \(error)")
+
+                let userMessage: String
+                let errorDescription = error.localizedDescription.lowercased()
+
+                if errorDescription.contains("temporarily unavailable") {
+                    userMessage = "Account temporarily unavailable. Please wait a few minutes and try again."
+                } else if errorDescription.contains("network") || errorDescription.contains("internet") {
+                    userMessage = "Network error. Please check your internet connection and try again."
+                } else {
+                    userMessage = "Unable to restore purchases. Please try again.\n\nError: \(error.localizedDescription)"
+                }
+
+                errorMessage = userMessage
             }
             isRestoring = false
         }

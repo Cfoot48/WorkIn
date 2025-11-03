@@ -305,6 +305,24 @@ class AuthenticationManager: ObservableObject {
         user = result.user
         isAuthenticated = true
 
+        // If Apple provided a name, save it to the profile store
+        if let fullName = appleIDCredential.fullName {
+            let displayName = [fullName.givenName, fullName.familyName]
+                .compactMap { $0 }
+                .joined(separator: " ")
+                .trimmingCharacters(in: .whitespaces)
+
+            if !displayName.isEmpty {
+                await MainActor.run {
+                    print("🍎 Apple Sign In: Setting display name from Apple: '\(displayName)'")
+                    self.profileStore?.profile.displayName = displayName
+                    if let email = result.user.email {
+                        self.profileStore?.profile.email = email
+                    }
+                }
+            }
+        }
+
         // Link RevenueCat to this user
         await linkRevenueCatUser(userId: result.user.uid)
     }
@@ -337,6 +355,20 @@ class AuthenticationManager: ObservableObject {
         print("🔥 Firebase Auth: Google Sign In successful for user: \(authResult.user.email ?? "unknown")")
         user = authResult.user
         isAuthenticated = true
+
+        // Get display name and email from Google
+        if let profile = result.user.profile {
+            let displayName = profile.name ?? ""
+            if !displayName.isEmpty {
+                await MainActor.run {
+                    print("🔴 Google Sign In: Setting display name from Google: '\(displayName)'")
+                    self.profileStore?.profile.displayName = displayName
+                    if let email = authResult.user.email {
+                        self.profileStore?.profile.email = email
+                    }
+                }
+            }
+        }
 
         // Link RevenueCat to this user
         await linkRevenueCatUser(userId: authResult.user.uid)

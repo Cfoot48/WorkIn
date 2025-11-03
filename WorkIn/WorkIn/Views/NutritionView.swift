@@ -14,6 +14,7 @@ struct NutritionView: View {
     @State private var barcodeError: String?
     @State private var showBarcodeError = false
     @State private var showingAIMealGenerator = false
+    @State private var showHealthInfo = false
 
     var body: some View {
         NavigationView {
@@ -69,6 +70,147 @@ struct NutritionView: View {
                         DailyNutritionSummaryView(nutritionStore: nutritionStore)
 
                         MealSectionsView(nutritionStore: nutritionStore)
+
+                        // Extra spacing before health info section
+                        Spacer()
+                            .frame(height: DesignSystem.Spacing.lg)
+
+                        // Medical disclaimer and citations - Collapsible
+                        DisclosureGroup(
+                            isExpanded: $showHealthInfo,
+                            content: {
+                                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                                        HStack(alignment: .top, spacing: 4) {
+                                            Text("•")
+                                                .font(.caption)
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text("Barcode nutrition data from ")
+                                                    .font(.caption)
+                                                    .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                                                + Text("Open Food Facts")
+                                                    .font(.caption)
+                                                    .foregroundColor(DesignSystem.Colors.primary)
+                                                    .underline()
+
+                                                Button(action: {
+                                                    if let url = URL(string: "https://world.openfoodfacts.org") {
+                                                        UIApplication.shared.open(url)
+                                                    }
+                                                }) {
+                                                    Text("world.openfoodfacts.org")
+                                                        .font(.caption2)
+                                                        .foregroundColor(DesignSystem.Colors.primary)
+                                                        .underline()
+                                                }
+                                            }
+                                        }
+
+                                        HStack(alignment: .top, spacing: 4) {
+                                            Text("•")
+                                                .font(.caption)
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text("BMR calculations use ")
+                                                    .font(.caption)
+                                                    .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                                                + Text("Mifflin-St Jeor Equation")
+                                                    .font(.caption)
+                                                    .foregroundColor(DesignSystem.Colors.primary)
+                                                    .underline()
+
+                                                Button(action: {
+                                                    if let url = URL(string: "https://pubmed.ncbi.nlm.nih.gov/2305711/") {
+                                                        UIApplication.shared.open(url)
+                                                    }
+                                                }) {
+                                                    Text("View scientific publication")
+                                                        .font(.caption2)
+                                                        .foregroundColor(DesignSystem.Colors.primary)
+                                                        .underline()
+                                                }
+                                            }
+                                        }
+
+                                        HStack(alignment: .top, spacing: 4) {
+                                            Text("•")
+                                                .font(.caption)
+                                            Text("General guidelines only - consult healthcare professional for personalized advice")
+                                                .font(.caption)
+                                                .foregroundColor(DesignSystem.Colors.textSecondary(for: colorScheme))
+                                        }
+                                    }
+                                    .fixedSize(horizontal: false, vertical: true)
+
+                                    Divider()
+                                        .padding(.vertical, 4)
+
+                                    HStack(spacing: DesignSystem.Spacing.md) {
+                                        Button(action: {
+                                            if let url = URL(string: "https://sites.google.com/view/theworkinapp/privacy-policy") {
+                                                UIApplication.shared.open(url)
+                                            }
+                                        }) {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "doc.text")
+                                                    .font(.caption)
+                                                Text("Privacy Policy")
+                                                    .font(.caption)
+                                                    .fontWeight(.medium)
+                                            }
+                                            .foregroundColor(DesignSystem.Colors.primary)
+                                            .padding(.vertical, 6)
+                                            .padding(.horizontal, 10)
+                                            .background(DesignSystem.Colors.primary.opacity(0.1))
+                                            .cornerRadius(6)
+                                        }
+
+                                        Button(action: {
+                                            if let url = URL(string: "https://sites.google.com/view/theworkinapp/terms-of-service") {
+                                                UIApplication.shared.open(url)
+                                            }
+                                        }) {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "doc.text")
+                                                    .font(.caption)
+                                                Text("Terms of Service")
+                                                    .font(.caption)
+                                                    .fontWeight(.medium)
+                                            }
+                                            .foregroundColor(DesignSystem.Colors.primary)
+                                            .padding(.vertical, 6)
+                                            .padding(.horizontal, 10)
+                                            .background(DesignSystem.Colors.primary.opacity(0.1))
+                                            .cornerRadius(6)
+                                        }
+                                    }
+                                }
+                                .padding(.top, DesignSystem.Spacing.sm)
+                            },
+                            label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "info.circle.fill")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(DesignSystem.Colors.primary)
+                                    Text("Health & Nutrition Information")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(DesignSystem.Colors.textPrimary(for: colorScheme))
+                                    Spacer()
+                                }
+                            }
+                        )
+                        .padding(DesignSystem.Spacing.md)
+                        .background(
+                            ZStack {
+                                DesignSystem.Colors.card(for: colorScheme)
+                                DesignSystem.Colors.primary.opacity(0.05)
+                            }
+                        )
+                        .cornerRadius(DesignSystem.CornerRadius.md)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                                .stroke(DesignSystem.Colors.primary.opacity(0.2), lineWidth: 1.5)
+                        )
                     }
                     .padding(DesignSystem.Spacing.lg)
                 }

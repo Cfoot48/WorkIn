@@ -1,0 +1,8 @@
+# Exclude other project directories - only track WorkIn
+BreakDownAi/
+balls-game/
+Fortune-Capital-Website/
+pygame-chess/
+
+# macOS
+.DS_Store

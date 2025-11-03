@@ -145,6 +145,11 @@ class SubscriptionManager: NSObject, ObservableObject {
                     print("✅ SubscriptionManager: Subscription check complete - isSubscribed: \(self.isSubscribed)")
                 }
 
+                // Schedule free trial reminder if user just started a trial
+                if hasActiveSubscription {
+                    NotificationManager.shared.scheduleFreeTrialReminder(customerInfo: customerInfo)
+                }
+
                 // Also fetch offerings to ensure products are loaded for Superwall
                 await fetchAndCacheOfferings()
             } catch {
@@ -345,6 +350,11 @@ extension SubscriptionManager: SuperwallDelegate {
                     print("🔄 Forcing RevenueCat to restore purchases and sync receipt...")
                     try await self.restorePurchases()
                     print("✅ RevenueCat restore complete")
+
+                    // Schedule free trial reminder for new subscriptions
+                    if let customerInfo = self.customerInfo {
+                        NotificationManager.shared.scheduleFreeTrialReminder(customerInfo: customerInfo)
+                    }
                 } catch {
                     print("❌ Error restoring purchases: \(error.localizedDescription)")
                 }
