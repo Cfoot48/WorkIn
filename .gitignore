@@ -4,5 +4,8 @@ balls-game/
 Fortune-Capital-Website/
 pygame-chess/
 
+# Exclude unrelated files
+Chess.py
+
 # macOS
 .DS_Store
